@@ -131,6 +131,26 @@ With nginx as the only proxy, overwrite the header, so visitors can't send their
 proxy_set_header X-Forwarded-For $remote_addr;
 ```
 
+## Running on the server
+
+The server keeps this repository in `website/`, beside a `storage/` folder that deploys never touch:
+
+```
+/var/www/vacationrentalhotline/
+├── website/        this repository
+└── storage/
+    ├── logs/       the app's logs
+    └── uploads/    files people upload
+```
+
+After `npm ci` and `npm run build`, `pm2 start ecosystem.config.cjs` runs the app. Everything it prints goes, with
+timestamps, to `storage/logs/website-out.log` and `storage/logs/website-error.log`. Set `PORT` in that file to the
+port nginx forwards to. So the logs don't grow without limit, install pm2's log rotation once on the server:
+`pm2 install pm2-logrotate`.
+
+Nothing takes file uploads yet: forms send JSON, and the CSV import is read in the browser. Any upload feature
+added later saves its files in `storage/uploads`, outside the repository.
+
 ## Project structure
 
 ```
