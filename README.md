@@ -143,10 +143,12 @@ The server keeps this repository in `website/`, beside a `storage/` folder that 
     └── uploads/    files people upload
 ```
 
-After `npm ci` and `npm run build`, `pm2 start ecosystem.config.cjs` runs the app. Everything it prints goes, with
-timestamps, to `storage/logs/website-out.log` and `storage/logs/website-error.log`. It listens on `PORT` from the
-website's `.env` (the port nginx forwards to; 3000 if unset). So the logs don't grow without limit, install pm2's
-log rotation once on the server: `pm2 install pm2-logrotate`.
+Step-by-step setup, nginx and HTTPS included: [docs/deployment.md](docs/deployment.md).
+
+After `npm ci` and `npm run build`, `pm2 start ecosystem.config.cjs` runs the app. It listens on 127.0.0.1 only,
+so it's reached through nginx, on `PORT` from the website's `.env` (3000 if unset). Everything it prints goes, with
+timestamps, to `storage/logs/website-out.log` and `storage/logs/website-error.log`. So the logs don't grow without
+limit, install pm2's log rotation once on the server: `pm2 install pm2-logrotate`.
 
 Nothing takes file uploads yet: forms send JSON, and the CSV import is read in the browser. Any upload feature
 added later saves its files in `storage/uploads`, outside the repository.

@@ -38,7 +38,9 @@ module.exports = {
       name: "vrh-website",
       cwd: __dirname,
       script: "node_modules/next/dist/bin/next",
-      args: "start",
+      // Only nginx, on the same machine, can reach the app. Directly, anyone
+      // could send their own X-Forwarded-For and dodge the sign-in limits.
+      args: "start --hostname 127.0.0.1",
       instances: 1,
       autorestart: true,
       // The app's output (requests that failed, scheduled jobs, email
