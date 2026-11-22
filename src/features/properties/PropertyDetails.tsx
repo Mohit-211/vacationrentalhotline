@@ -1,29 +1,41 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import styles from "./PropertyDetails.module.scss";
-import Header from "@/components/layout/Header";
-import { IoIosArrowDown, IoMdArrowRoundBack } from "react-icons/io";
-import { PiDotsThreeCircleVertical } from "react-icons/pi";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { ArrowLeft, ChevronDown, EllipsisVertical, Pencil, Plus, StickyNote, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import {
-  getProperty,
-  deleteProperties,
-} from "@/lib/api/properties";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
 import {
-  addNote,
-  getNote,
-  deleteNote,
-  updateNote,
-} from "@/lib/api/notes";
-import { Card, Dropdown, Form, Input, message, Modal, Space } from "antd";
-import { Button, Container } from "react-bootstrap";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { FormField } from "@/components/ui/FormField";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Textarea } from "@/components/ui/Textarea";
+import { deleteProperties, getProperty } from "@/lib/api/properties";
+import { addNote, deleteNote, getNote, updateNote } from "@/lib/api/notes";
 import type { Id, NoteInput, Property } from "@/lib/api/types";
+import { useIsClient } from "@/lib/useIsClient";
 
-const fetchDetails = async (
-  id: Id,
-  setData: (property: Property) => void
-) => {
+const noteSchema = z.object({ notes: z.string().min(1, "Please enter a note") });
+
+const fetchDetails = async (id: Id, setData: (property: Property) => void) => {
   try {
     const res = await getProperty(id);
     setData(res.data.data);
@@ -31,63 +43,80 @@ const fetchDetails = async (
     console.error(e);
   }
 };
+
+function DetailItem({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="mt-1 font-semibold break-words">{children}</dd>
+    </div>
+  );
+}
+
 const PropertyDetails = () => {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+  const isClient = useIsClient();
   const [data, setData] = useState<Partial<Property>>({});
+  const [loaded, setLoaded] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editId, setEditId] = useState<Id | null>(null);
-  const [form] = Form.useForm<NoteInput>();
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<NoteInput>({ resolver: zodResolver(noteSchema), mode: "onChange", defaultValues: { notes: "" } });
+
   useEffect(() => {
     if (id) {
-      fetchDetails(id, setData);
+      fetchDetails(id, setData).finally(() => setLoaded(true));
     }
   }, [id]);
+
   const handleModalToggle = useCallback(
     (visible = false, noteId: Id | null = null) => {
       setIsModalVisible(visible);
       setEditId(noteId);
-      if (!visible) form.resetFields();
+      if (!visible) reset({ notes: "" });
     },
-    [form]
+    [reset]
   );
-  const handleFormSubmit = async () => {
+
+  const saveNote = async (values: NoteInput) => {
     try {
-      const values = await form.validateFields();
-      const apiCall =
-        isClient && editId
-          ? updateNote(editId, values)
-          : addNote(id, values);
+      const apiCall = isClient && editId ? updateNote(editId, values) : addNote(id, values);
       const res = await apiCall;
-      message.success(res.data.message);
+      toast.success(res.data.message);
       handleModalToggle(false);
       fetchDetails(id, setData);
     } catch (e) {
       console.error(e);
     }
   };
+  const handleFormSubmit = handleSubmit(saveNote, (e) => console.error(e));
+
   const handleEdit = async (noteId: Id) => {
     try {
       const res = await getNote(noteId);
-      form.setFieldsValue({ notes: res.data.data.notes });
+      setValue("notes", res.data.data.notes);
       handleModalToggle(true, noteId);
     } catch (e) {
       console.error(e);
     }
   };
+
   const handleDeleteNote = async (noteId: Id) => {
     try {
       await deleteNote(noteId);
-      message.success("Note deleted successfully");
+      toast.success("Note deleted successfully");
       fetchDetails(id, setData);
     } catch (e) {
       console.error(e);
     }
   };
+
   const handleEditProperty = () => router.push(`/addnewproperty/${id}`);
   const handleDeleteProperty = () => {
     const formData = {
@@ -95,176 +124,198 @@ const PropertyDetails = () => {
     };
     deleteProperties(formData)
       .then((res) => {
-        message.success(res?.data?.message);
+        toast.success(res?.data?.message);
         router.push("/dashboard");
       })
       .catch((e) => {
         console.log(e, "error");
       });
   };
-  const renderPropertyDetails = () => (
-    <Card>
-      <div className={styles.detailsmain}>
-        {[
-          {
-            label: "Property Owner Name",
-            value: data?.property_owner_name ?? "---",
-          },
-          { label: "Address line 1", value: data?.address_line_1 ?? "---" },
-          { label: "Address line 2", value: data?.address_line_2 ?? "---" },
-          { label: "Status", value: data?.subscription_status ?? "---" },
-          { label: "Email 1", value: data?.property_owner_email_1 ?? "---" },
-          { label: "Email 2", value: data?.property_owner_email_2 ?? "---" },
-          {
-            label: "Phone Number 1",
-            value: data?.property_owner_mobile_number_1 ?? "---",
-          },
-          {
-            label: "Phone Number 2",
-            value: data?.property_owner_mobile_number_2 ?? "---",
-          },
-          { label: "Country", value: data?.country ?? "---" },
-          { label: "State", value: data?.state ?? "---" },
-          { label: "City", value: data?.city ?? "---" },
-          { label: "Zip Code", value: data?.zip_code ?? "---" },
-        ]?.map((item, index) => (
-          <div key={index} className={styles.item1}>
-            <h6 className={styles.name}>{item.label}</h6>
-            <h6 className={styles.bold}>{item.value}</h6>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-  const renderSubscriptionDetails = () => (
-    <Card>
-      <div className={styles.subscriptionmain}>
-        {[
-          {
-            label: "Subscription Purchased",
-            value: data?.subscription_status
-              ? data.subscription_status === "DEACTIVATE"
-                ? "Inactive Properties"
-                : "Active Properties"
-              : "---",
-          },
-          {
-            label: "Expiry Date",
-            value: data?.subscription_end_date?.split("T")[0] ?? "---",
-          },
-          { label: "Validity", value: data?.validity ?? "---" },
-        ].map((item, index) => (
-          <div key={index}>
-            <h6 className={styles.name}>{item.label}</h6>
-            <h6 className={styles.bold}>{item.value}</h6>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-  return (
-    <div className={styles.PropertyDetails}>
-      <Container>
-        <Header />
-        <div className={styles.inner}>
-          <div className={styles.main}>
-            <div className={styles.main_heading}>
-              <IoMdArrowRoundBack
-                onClick={() => router.push("/dashboard")}
-                style={{ cursor: "pointer" }}
-              />
-              <h2>Property Details</h2>
-            </div>
-            <div className={styles.buttonSections}>
-              <Button
-                className={styles.paynow}
-                onClick={() => handleModalToggle(true)}
-              >
-                + Add a Note
-              </Button>
-              <Dropdown
-                menu={{
-                  items: [
-                    { key: "edit", label: "Edit", onClick: handleEditProperty },
-                    ...(data?.payment_status !== "SUCCESS"
-                      ? [
-                          {
-                            key: "delete",
-                            label: "Delete",
-                            onClick: handleDeleteProperty,
-                          },
-                        ]
-                      : []),
-                  ],
-                }}
-              >
-                <Button className={styles.action}>
-                  Action <IoIosArrowDown />
-                </Button>
-              </Dropdown>
-            </div>
-          </div>
-          <div>
-            {renderPropertyDetails()}
-          </div>
-          <div className={styles.subscriptionContainer}>
-            <h6>Subscription Details</h6>
-            {renderSubscriptionDetails()}
-          </div>
-          <div className={styles.noteContainer}>
-            <h6>Notes</h6>
-            {isClient &&
-              data?.property_notes?.map(
-                (item, index) =>
-                  item?.notes && (
-                    <Card key={index} className={styles.notescard}>
-                      <div className={styles.mainnotes}>
-                        <div>{item.notes}</div>
-                        <Dropdown
-                          menu={{
-                            items: [
-                              {
-                                key: "edit",
-                                label: "Edit",
-                                onClick: () => handleEdit(item.id),
-                              },
-                              {
-                                key: "delete",
-                                label: "Delete",
-                                onClick: () => handleDeleteNote(item.id),
-                              },
-                            ],
-                          }}
-                        >
-                          <Space>
-                            <PiDotsThreeCircleVertical size={20} />
-                          </Space>
-                        </Dropdown>
-                      </div>
-                    </Card>
-                  )
-              )}
-          </div>
+
+  const value = (v: unknown) => (v === undefined || v === null ? "---" : String(v));
+  const status =
+    data?.subscription_status === "ACTIVATE" ? (
+      <Badge variant="success">Active</Badge>
+    ) : data?.subscription_status === "DEACTIVATE" ? (
+      <Badge variant="warning">Inactive</Badge>
+    ) : (
+      "---"
+    );
+
+  const propertyRows: [string, ReactNode][] = [
+    ["Property Owner Name", value(data?.property_owner_name)],
+    ["Address line 1", value(data?.address_line_1)],
+    ["Address line 2", value(data?.address_line_2)],
+    ["Status", status],
+    ["Email 1", value(data?.property_owner_email_1)],
+    ["Email 2", value(data?.property_owner_email_2)],
+    ["Phone Number 1", value(data?.property_owner_mobile_number_1)],
+    ["Phone Number 2", value(data?.property_owner_mobile_number_2)],
+    ["Country", value(data?.country)],
+    ["State", value(data?.state)],
+    ["City", value(data?.city)],
+    ["Zip Code", value(data?.zip_code)],
+  ];
+  const subscriptionRows: [string, ReactNode][] = [
+    [
+      "Subscription Purchased",
+      data?.subscription_status
+        ? data.subscription_status === "DEACTIVATE"
+          ? "Inactive Properties"
+          : "Active Properties"
+        : "---",
+    ],
+    ["Expiry Date", data?.subscription_end_date?.split("T")[0] ?? "---"],
+    ["Validity", value(data?.validity)],
+  ];
+  const notes = (data?.property_notes ?? []).filter((item) => item?.notes);
+
+  const skeletonGrid = (count: number) => (
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-5 w-40" />
         </div>
-      </Container>
-      <Modal
-        title={isClient && editId ? "Edit Note" : "Add a Note"}
-        open={isModalVisible}
-        onOk={handleFormSubmit}
-        onCancel={() => handleModalToggle(false)}
-        okText="Save"
-        cancelText="Cancel"
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="notes"
-            rules={[{ required: true, message: "Please enter a note" }]}
-          >
-            <Input.TextArea rows={4} placeholder="Enter your note here" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        title="Property Details"
+        back={
+          <Button asChild variant="ghost" size="icon" aria-label="Back to dashboard" className="mt-0.5 -ml-2">
+            <Link href="/dashboard">
+              <ArrowLeft className="size-5" aria-hidden="true" />
+            </Link>
+          </Button>
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={() => handleModalToggle(true)}>
+              <Plus aria-hidden="true" />
+              Add a Note
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  Action
+                  <ChevronDown aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={handleEditProperty}>
+                  <Pencil aria-hidden="true" />
+                  Edit
+                </DropdownMenuItem>
+                {data?.payment_status !== "SUCCESS" && (
+                  <DropdownMenuItem variant="danger" onSelect={handleDeleteProperty}>
+                    <Trash2 aria-hidden="true" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-6 text-lg font-bold">Property</h2>
+        {loaded ? (
+          <dl className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {propertyRows.map(([label, content]) => (
+              <DetailItem key={label} label={label}>
+                {content}
+              </DetailItem>
+            ))}
+          </dl>
+        ) : (
+          skeletonGrid(9)
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-6 text-lg font-bold">Subscription Details</h2>
+        {loaded ? (
+          <dl className="grid gap-6 sm:grid-cols-3">
+            {subscriptionRows.map(([label, content]) => (
+              <DetailItem key={label} label={label}>
+                {content}
+              </DetailItem>
+            ))}
+          </dl>
+        ) : (
+          skeletonGrid(3)
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-bold">Notes</h2>
+        {isClient && loaded && notes.length > 0 ? (
+          <ul className="grid gap-3">
+            {notes.map((item, index) => (
+              <li
+                key={index}
+                className="flex items-start justify-between gap-4 rounded-xl border border-border bg-canvas p-4"
+              >
+                <p className="leading-relaxed whitespace-pre-wrap">{item.notes}</p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" aria-label="Note actions" className="shrink-0">
+                      <EllipsisVertical aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => handleEdit(item.id)}>
+                      <Pencil aria-hidden="true" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem variant="danger" onSelect={() => handleDeleteNote(item.id)}>
+                      <Trash2 aria-hidden="true" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </li>
+            ))}
+          </ul>
+        ) : loaded ? (
+          <EmptyState
+            icon={<StickyNote aria-hidden="true" />}
+            title="No notes yet"
+            description="Add a note to keep track of anything about this property."
+            className="py-8"
+          />
+        ) : (
+          <Skeleton className="h-16 w-full" />
+        )}
+      </section>
+
+      <Dialog open={isModalVisible} onOpenChange={(open) => !open && handleModalToggle(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isClient && editId ? "Edit Note" : "Add a Note"}</DialogTitle>
+          </DialogHeader>
+          <form id="note-form" noValidate onSubmit={handleFormSubmit}>
+            <FormField id="note_notes" error={errors.notes?.message}>
+              <Textarea rows={4} placeholder="Enter your note here" aria-label="Note" {...register("notes")} />
+            </FormField>
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleModalToggle(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="note-form">
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
 export default PropertyDetails;

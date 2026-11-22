@@ -1,20 +1,42 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import styles from "./EditProfileForm.module.scss";
-import { Container } from "react-bootstrap";
-import { Form, Input, Button, Select, message, Skeleton } from "antd";
-import PhoneInput from "react-phone-number-input";
-import "react-phone-number-input/style.css";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/Button";
+import { Combobox } from "@/components/ui/Combobox";
+import { FormField } from "@/components/ui/FormField";
+import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Textarea } from "@/components/ui/Textarea";
 import { getCities, getCountries, getStates } from "@/lib/api/locations";
 import { getProfile, updateProfile } from "@/lib/api/profile";
 import type { City, Country, State, UpdateProfileInput } from "@/lib/api/types";
+import { isEmail, isValidPhone } from "@/lib/validation";
+
+const filled = (value: unknown) => value !== undefined && value !== null && value !== "";
+const text = (message: string) => z.unknown().refine(filled, message);
+
+const schema = z.object({
+  name: text("Please input your name!"),
+  email: text("Please input your email!").refine((v) => isEmail(String(v)), "Please input your email!"),
+  mobile: z
+    .unknown()
+    .superRefine((value, ctx) => {
+      if (!filled(value)) ctx.addIssue({ code: "custom", message: "Please input your mobile!" });
+      else if (!isValidPhone(String(value))) ctx.addIssue({ code: "custom", message: "Invalid phone number." });
+    }),
+  address: text("Please input your home address!"),
+  zip_code: text("Please input your zip code!"),
+});
+
+type ProfileFormValues = Partial<Record<keyof UpdateProfileInput, string | number | null>>;
 
 const EditProfileForm = () => {
-  const [isClient, setIsClient] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState<string | undefined>("");
-  const { TextArea } = Input;
   const [countries, setCountries] = useState<Country[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -22,66 +44,16 @@ const EditProfileForm = () => {
   const [selectedState, setSelectedState] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-  const [form] = Form.useForm<UpdateProfileInput>();
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      setLoadingData(true);
-      // Fetch country codes (limited to US and Canada)
-      getCountries()
-        .then((res) => {
-          setCountries(res?.data?.data.filter(country => country.name === "Canada" || country.name === "United States") || []);
-        })
-        .catch((error) => {
-          console.error("Error fetching countries:", error);
-        });
-        
-      // Fetch profile data and populate form
-      getProfile()
-        .then((res) => {
-          const profileData = res?.data?.data;
-          if (profileData) {
-            setPhoneNumber(profileData?.mobile);
-            form.setFieldsValue({
-              name: profileData?.user_profile?.name,
-              email: profileData?.email,
-              mobile: profileData?.user_profile?.mobile,
-              address: profileData?.user_profile?.address,
-              country_id: profileData?.user_profile?.country_id,
-              state_id: profileData?.user_profile?.state_id,
-              city_id: profileData?.user_profile?.city_id,
-              zip_code: profileData?.user_profile?.zip_code,
-            });
-            setSelectedCountry(profileData?.user_profile?.country_id ?? null);
-            setSelectedState(profileData?.user_profile?.state_id ?? null);
-            if (profileData?.user_profile?.country_id) {
-              handleCountryChange(profileData?.user_profile?.country_id);
-            }
-            if (profileData?.user_profile?.state_id) {
-              handleStateChange(profileData?.user_profile?.state_id);
-            }
-          }
-          setLoadingData(false);
-        })
-        .catch((e) => {
-          console.error("Error fetching profile:", e);
-          setLoadingData(false);
-        });
-    } else {
-      setLoadingData(false);
-    }
-  }, [isClient]);
+  const { control, handleSubmit, reset } = useForm<ProfileFormValues>({
+    // `raw` hands the form's own values to onFinish, untouched by the schema.
+    resolver: zodResolver(schema, undefined, { raw: true }) as Resolver<ProfileFormValues>,
+    mode: "onChange",
+  });
 
   const handleCountryChange = (countryId: number) => {
     setSelectedCountry(countryId);
     setSelectedState(null);
     setCities([]);
-
-    // Fetch states based on selected country
     getStates(countryId)
       .then((res) => {
         setStates(res?.data?.data[0]?.all_state || []);
@@ -93,8 +65,6 @@ const EditProfileForm = () => {
 
   const handleStateChange = (stateId: number) => {
     setSelectedState(stateId);
-
-    // Fetch cities based on selected state
     getCities(stateId)
       .then((res) => {
         setCities(res?.data?.data || []);
@@ -104,27 +74,59 @@ const EditProfileForm = () => {
       });
   };
 
-  const handlePhoneNumberChange = (value?: string) => {
-    setPhoneNumber(value);
-  };
+  useEffect(() => {
+    getCountries()
+      .then((res) => {
+        setCountries(
+          res?.data?.data.filter((country) => country.name === "Canada" || country.name === "United States") || []
+        );
+      })
+      .catch((error) => {
+        console.error("Error fetching countries:", error);
+      });
 
-  const validatePhoneNumber = (rule: unknown, value?: string) => {
-    if (!value) {
-      return Promise.reject("Phone number is required.");
-    }
-    const phoneNumber = parsePhoneNumberFromString(value);
-    if (phoneNumber && phoneNumber.isValid()) {
-      return Promise.resolve();
-    }
-    return Promise.reject("Invalid phone number.");
-  };
+    getProfile()
+      .then((res) => {
+        const profileData = res?.data?.data;
+        if (profileData) {
+          setPhoneNumber(profileData?.mobile);
+          reset({
+            name: profileData?.user_profile?.name,
+            email: profileData?.email,
+            mobile: profileData?.user_profile?.mobile,
+            address: profileData?.user_profile?.address,
+            country_id: profileData?.user_profile?.country_id,
+            state_id: profileData?.user_profile?.state_id,
+            city_id: profileData?.user_profile?.city_id,
+            zip_code: profileData?.user_profile?.zip_code,
+          });
+          setSelectedCountry(profileData?.user_profile?.country_id ?? null);
+          setSelectedState(profileData?.user_profile?.state_id ?? null);
+          if (profileData?.user_profile?.country_id) {
+            handleCountryChange(profileData?.user_profile?.country_id);
+          }
+          if (profileData?.user_profile?.state_id) {
+            handleStateChange(profileData?.user_profile?.state_id);
+          }
+        }
+        setLoadingData(false);
+      })
+      .catch((e) => {
+        console.error("Error fetching profile:", e);
+        setLoadingData(false);
+      });
+    // Loads once, like the old form; the change handlers are plain functions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const onFinish = async (values: UpdateProfileInput) => {
+  const onFinish = async (values: ProfileFormValues) => {
     setLoading(true);
-    const updatedValues = { ...values, mobile: phoneNumber };
+    // As before, the number sent is the one loaded with the profile
+    // (or the one typed), not necessarily the one the field showed.
+    const updatedValues = { ...values, mobile: phoneNumber } as UpdateProfileInput;
     try {
       const res = await updateProfile(updatedValues);
-      message.success(res?.data?.message || "Profile Updated");
+      toast.success(res?.data?.message || "Profile Updated");
     } catch (e) {
       console.error("Error updating profile:", e);
     } finally {
@@ -132,72 +134,163 @@ const EditProfileForm = () => {
     }
   };
 
+  if (loadingData) {
+    return (
+      <div className="space-y-6" aria-busy="true">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const locationOptions = (items: { id: number; name: string }[]) =>
+    items.map((item) => ({ value: item.id, label: item.name }));
+
   return (
-    <div className={styles.EditProfile}>
-      <Container>
-        {loadingData ? (
-          <Skeleton active paragraph={{ rows: 8 }} />
-        ) : isClient ? (
-          <Form form={form} layout="vertical" onFinish={onFinish} autoComplete="off">
-            <Form.Item label="Name" name="name" rules={[{ required: true, message: "Please input your name!" }]}>
-              <Input placeholder="Enter Name" />
-            </Form.Item>
-            <div className={styles.divided}>
-              <Form.Item className={styles.ctminputline} label="Email" name="email" rules={[{ required: true, type: "email", message: "Please input your email!" }]}>
-                <Input placeholder="Enter Email" disabled />
-              </Form.Item>
-              <Form.Item className={styles.ctminputline} label="Mobile" name="mobile" rules={[{ required: true, message: "Please input your mobile!" }, { validator: validatePhoneNumber }]}>
-                <PhoneInput placeholder="Enter Mobile Number" value={phoneNumber} onChange={handlePhoneNumberChange} defaultCountry="US" countries={["US", "CA"]} inputClass="custom-phone-input" />
-              </Form.Item>
-            </div>
-            <Form.Item label="Home Address" name="address" rules={[{ required: true, message: "Please input your home address!" }]}>
-              <TextArea rows={4} placeholder="Enter your Home Address" />
-            </Form.Item>
-            <div className={styles.divided}>
-              <Form.Item label="Country" name="country_id" className={styles.ctminputline}>
-                <Select placeholder="Select Country" onChange={handleCountryChange} showSearch filterOption={(input, option) => String(option?.children ?? "").toLowerCase().includes(input.toLowerCase())}>
-                  {countries.map((country) => (
-                    <Select.Option key={country.id} value={country.id}>
-                      {country.name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-              <Form.Item label="State" name="state_id" className={styles.ctminputline}>
-                <Select placeholder="Select State" onChange={handleStateChange} disabled={!selectedCountry} showSearch filterOption={(input, option) => String(option?.children ?? "").toLowerCase().includes(input.toLowerCase())}>
-                  {states.map((state) => (
-                    <Select.Option key={state.id} value={state.id}>
-                      {state.name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </div>
-            <div className={styles.divided}>
-              <Form.Item label="City" name="city_id" className={styles.ctminputline}>
-                <Select placeholder="Select City" disabled={!selectedState} showSearch filterOption={(input, option) => String(option?.children ?? "").toLowerCase().includes(input.toLowerCase())}>
-                  {cities.map((city) => (
-                    <Select.Option key={city.id} value={city.id}>
-                      {city.name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-              <Form.Item label="Zip Code" name="zip_code" rules={[{ required: true, message: "Please input your zip code!" }]}>
-                <Input placeholder="Enter Zip Code" />
-              </Form.Item>
-            </div>
-            <Form.Item>
-              <Button className="submit_btn_theme m-0" htmlType="submit" loading={loading}>
-                Save Details
-              </Button>
-            </Form.Item>
-          </Form>
-        ) : (
-          <p>No Profile found. Please log in.</p>
+    <form noValidate autoComplete="off" onSubmit={handleSubmit(onFinish)} className="grid gap-5 md:grid-cols-2">
+      <Controller
+        control={control}
+        name="name"
+        render={({ field, fieldState }) => (
+          <FormField id="profile_name" label="Name" required error={fieldState.error?.message} className="md:col-span-2">
+            <Input
+              ref={field.ref}
+              value={(field.value as string | null | undefined) ?? ""}
+              onChange={(e) => field.onChange(e.target.value)}
+              onBlur={field.onBlur}
+              placeholder="Enter Name"
+            />
+          </FormField>
         )}
-      </Container>
-    </div>
+      />
+      <Controller
+        control={control}
+        name="email"
+        render={({ field, fieldState }) => (
+          <FormField id="profile_email" label="Email" required error={fieldState.error?.message}>
+            <Input value={(field.value as string | null | undefined) ?? ""} placeholder="Enter Email" disabled readOnly />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="mobile"
+        render={({ field, fieldState }) => (
+          <FormField id="profile_mobile" label="Mobile" required error={fieldState.error?.message}>
+            <PhoneInput
+              placeholder="Enter Mobile Number"
+              defaultCountry="US"
+              countries={["US", "CA"]}
+              value={(field.value as string | null | undefined) ?? undefined}
+              onChange={(value) => {
+                field.onChange(value);
+                setPhoneNumber(value);
+              }}
+              onBlur={field.onBlur}
+            />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="address"
+        render={({ field, fieldState }) => (
+          <FormField
+            id="profile_address"
+            label="Home Address"
+            required
+            error={fieldState.error?.message}
+            className="md:col-span-2"
+          >
+            <Textarea
+              ref={field.ref}
+              rows={4}
+              value={(field.value as string | null | undefined) ?? ""}
+              onChange={(e) => field.onChange(e.target.value)}
+              onBlur={field.onBlur}
+              placeholder="Enter your Home Address"
+            />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="country_id"
+        render={({ field }) => (
+          <FormField id="profile_country_id" label="Country">
+            <Combobox
+              placeholder="Select Country"
+              searchPlaceholder="Search country"
+              options={locationOptions(countries)}
+              value={field.value as number | null | undefined}
+              onChange={(value) => {
+                field.onChange(value);
+                handleCountryChange(value as number);
+              }}
+            />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="state_id"
+        render={({ field }) => (
+          <FormField id="profile_state_id" label="State">
+            <Combobox
+              placeholder="Select State"
+              searchPlaceholder="Search state"
+              options={locationOptions(states)}
+              value={field.value as number | null | undefined}
+              disabled={!selectedCountry}
+              onChange={(value) => {
+                field.onChange(value);
+                handleStateChange(value as number);
+              }}
+            />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="city_id"
+        render={({ field }) => (
+          <FormField id="profile_city_id" label="City">
+            <Combobox
+              placeholder="Select City"
+              searchPlaceholder="Search city"
+              options={locationOptions(cities)}
+              value={field.value as number | null | undefined}
+              disabled={!selectedState}
+              onChange={(value) => field.onChange(value)}
+            />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="zip_code"
+        render={({ field, fieldState }) => (
+          <FormField id="profile_zip_code" label="Zip Code" required error={fieldState.error?.message}>
+            <Input
+              ref={field.ref}
+              value={(field.value as string | null | undefined) ?? ""}
+              onChange={(e) => field.onChange(e.target.value)}
+              onBlur={field.onBlur}
+              placeholder="Enter Zip Code"
+            />
+          </FormField>
+        )}
+      />
+      <div className="md:col-span-2">
+        <Button type="submit" size="lg" loading={loading}>
+          Save Details
+        </Button>
+      </div>
+    </form>
   );
 };
 

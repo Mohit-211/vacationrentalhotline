@@ -1,135 +1,82 @@
 "use client";
 
-import React, { useState } from "react";
-import { Button, Form, Input, message, Spin } from "antd";
-import styles from "./PasswordForms.module.scss";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { resetPassword } from "@/lib/api/auth";
-import Logo from "@public/logo-2.png";
-import Image from "next/image";
-import { IoMdArrowRoundBack } from "react-icons/io";
+import { AuthCard } from "./AuthCard";
+
+const schema = z
+  .object({
+    password: z
+      .string()
+      .min(1, "Please input your new password!")
+      .min(8, "Password must be at least 8 characters long!")
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/,
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character!"
+      ),
+    confirmPassword: z.string().min(1, "Please confirm your new password!"),
+  })
+  .refine((values) => !values.confirmPassword || values.password === values.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "The two passwords do not match!",
+  });
+type ResetPasswordValues = z.infer<typeof schema>;
 
 const ResetPasswordForm = () => {
   const router = useRouter();
-  const [loading, setLoading] = useState(false); // State for loading spinner
+  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ResetPasswordValues>({
+    resolver: zodResolver(schema),
+    mode: "onChange",
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
-  // Handle the password change process
-  const handlePasswordChange = async (values: {
-    password: string;
-    confirmPassword: string;
-  }) => {
-    setLoading(true); // Start loading spinner
-    const token = new URLSearchParams(window.location.search).get("token"); // Retrieve token from query
+  const handlePasswordChange = async (values: ResetPasswordValues) => {
+    setLoading(true);
+    const token = new URLSearchParams(window.location.search).get("token");
     const formData = {
       password: values.password,
       confirm_password: values.confirmPassword,
-      token: token, // Include the token in the request
+      token: token,
     };
 
     try {
       await resetPassword(formData);
-      message.success("Password changed successfully!");
-      router.replace("/login"); // Redirect to login page after successful change
+      toast.success("Password changed successfully!");
+      router.replace("/login");
     } catch (error) {
       console.error("Error changing password:", error);
     } finally {
-      setLoading(false); // Stop loading spinner
+      setLoading(false);
     }
   };
 
   return (
-    <div className={styles.ForgotPassword}>
-      <div className={styles.Login}>
-        <div className={styles.Login_inner}>
-        <div className="main_heading">
-          <div
-            onClick={() => {
-              router.push("/");
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <Image src={Logo} height={50} alt="Logo" />
-          </div>
-          <div
-            className="innerheading"
-            onClick={() => {
-              router.push("/");
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <IoMdArrowRoundBack />
-            <div>Go to Home</div>
-          </div>
-        </div>
-          <h4>Forgot Password</h4>
-
-          <Spin size="small" style={{ color: "white" }} spinning={loading}>
-            <Form
-              name="reset"
-              autoComplete="off"
-              layout="vertical"
-              onFinish={handlePasswordChange} // Form submission handler
-            >
-              <Form.Item
-                label="New Password"
-                name="password"
-                rules={[
-                  {
-                    required: true,
-                    message: "Please input your new password!",
-                  },
-                  {
-                    min: 8,
-                    message: "Password must be at least 8 characters long!",
-                  },
-                  {
-                    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/,
-                    message: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character!",
-                  },
-                ]}
-              >
-                <Input.Password />
-              </Form.Item>
-
-              <Form.Item
-                label="Confirm Password"
-                name="confirmPassword"
-                dependencies={["password"]}
-                rules={[
-                  {
-                    required: true,
-                    message: "Please confirm your new password!",
-                  },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue("password") === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(
-                        new Error("The two passwords do not match!")
-                      );
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password />
-              </Form.Item>
-
-              <Form.Item>
-                <Button
-                  className="submit_btn_theme"
-                  htmlType="submit"
-                  block
-                  loading={loading} // Show spinner when loading is true
-                >
-                  {loading ? "Changing Password..." : "Change Password"}
-                </Button>
-              </Form.Item>
-            </Form>
-          </Spin>
-        </div>
-      </div>
-    </div>
+    <AuthCard title="Reset Password" description="Choose a new password for your account.">
+      <form noValidate autoComplete="off" onSubmit={handleSubmit(handlePasswordChange)} className="grid gap-5">
+        <FormField id="reset_password" label="New Password" required error={errors.password?.message}>
+          <PasswordInput autoComplete="new-password" {...register("password", { deps: ["confirmPassword"] })} />
+        </FormField>
+        <FormField id="reset_confirmPassword" label="Confirm Password" required error={errors.confirmPassword?.message}>
+          <PasswordInput autoComplete="new-password" {...register("confirmPassword")} />
+        </FormField>
+        <Button type="submit" size="lg" loading={loading} className="w-full">
+          {loading ? "Changing Password..." : "Change Password"}
+        </Button>
+      </form>
+    </AuthCard>
   );
 };
 

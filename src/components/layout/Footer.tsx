@@ -1,107 +1,87 @@
 "use client";
 
-import React from "react";
-import styles from "./Footer.module.scss";
-import logo from "@public/logo-2.png";
-import Image from "next/image";
-import { Container } from "react-bootstrap";
-import { Link as ScrollLink } from "react-scroll";
-import { useRouter } from "next/navigation";
-const Footer = () => {
-  const router = useRouter();
-  const currentyear = new Date().getFullYear();
-  return (
-    <div className={styles.footer}>
-      <Container>
-        <div className={styles.footerTop}>
-          <div>
-            <Image src={logo} alt="Nuclear Gauges USA" height={50} />
-          </div>
-          <div className={styles.fotter_item}>
-            <h5>Quick Links</h5>
-            <li>
-              {" "}
-              <ScrollLink
-                to="banner-section"
-                spy={true}
-                smooth={true}
-                offset={-70}
-                duration={500}
-                className={styles.link}
-              >
-                Home
-              </ScrollLink>
-            </li>
-            <li>
-              {" "}
-              <ScrollLink
-                to="about-section"
-                spy={true}
-                smooth={true}
-                offset={-70}
-                duration={500}
-                className={styles.link}
-              >
-                About
-              </ScrollLink>
-            </li>
-            <li>
-              <ScrollLink
-                to="contact-us"
-                spy={true}
-                smooth={true}
-                offset={-70}
-                duration={500}
-                className={styles.link}
-              >
-                Contact
-              </ScrollLink>
-            </li>
-          </div>
-          <div className={styles.fotter_item}>
-            <h5>Legal</h5>
-            <li className={styles.link}
-             onClick={() => {
-              const path = "/privacy-policy";
-              router.push(path);
-            }}
-            >Privacy Policy</li>
-            <li
-              className={styles.link}
-              onClick={() => {
-                const path = "/terms-and-conditions";
-                router.push(path);
-              }}
-            >
-              Terms and Conditions
-            </li>
-          </div>
-          <div className={styles.fotter_item}>
-            <h5>Contact Us</h5>
-            <h6>Email us on</h6>
-            <li className={styles.color_blue}>
-              <a href="mailto:info@vacationrentalhotline.com">
-                info@vacationrentalhotline.com
-              </a>
-            </li>
-            <h6>Address</h6>
+import Link from "next/link";
+import { Mail, MapPin } from "lucide-react";
+import { Container } from "@/components/ui/Container";
+import { Logo } from "@/components/ui/Logo";
 
-            <li className={styles.color_blue}>
-              <a>1001 North Barfield Dr #98 Marco Island Florida 34145</a>
-            </li>
-          </div>
-        </div>
-      </Container>
-      <hr />
-      <Container>
+const quickLinks = [
+  { href: "/#banner-section", label: "Home" },
+  { href: "/#about-section", label: "About" },
+  { href: "/#contact-us", label: "Contact" },
+];
+
+const legalLinks = [
+  { href: "/privacy-policy", label: "Privacy Policy" },
+  { href: "/terms-and-conditions", label: "Terms and Conditions" },
+  { href: "/cookies-policy", label: "Cookie Policy" },
+];
+
+const linkClasses = "text-muted-foreground transition-colors hover:text-primary-strong";
+
+const Footer = () => {
+  const currentYear = new Date().getFullYear();
+  return (
+    <footer className="border-t border-border bg-surface">
+      <Container className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.4fr]">
         <div>
-          <p>
-            Copyright © {currentyear} Vacation Rental Hotline, All rights
-            reserved.
-          </p>
+          <Logo className="h-11" />
+        </div>
+        <div>
+          <h2 className="mb-4 text-sm font-bold tracking-wider uppercase">Quick Links</h2>
+          <ul className="space-y-2.5 text-sm">
+            {quickLinks.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className={linkClasses}>
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h2 className="mb-4 text-sm font-bold tracking-wider uppercase">Legal</h2>
+          <ul className="space-y-2.5 text-sm">
+            {legalLinks.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className={linkClasses}>
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h2 className="mb-4 text-sm font-bold tracking-wider uppercase">Contact Us</h2>
+          <ul className="space-y-4 text-sm">
+            <li className="flex gap-3">
+              <Mail className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />
+              <div>
+                <p className="font-semibold">Email us at</p>
+                <a href="mailto:info@vacationrentalhotline.com" className="text-primary-strong hover:text-primary-stronger hover:underline">
+                  info@vacationrentalhotline.com
+                </a>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />
+              <div>
+                <p className="font-semibold">Address</p>
+                <address className="text-muted-foreground not-italic">
+                  1001 North Barfield Dr #98 Marco Island Florida 34145
+                </address>
+              </div>
+            </li>
+          </ul>
         </div>
       </Container>
-    </div>
+      <div className="border-t border-border">
+        <Container className="py-5 text-sm text-muted-foreground">
+          <p>Copyright © {currentYear} Vacation Rental Hotline, All rights reserved.</p>
+        </Container>
+      </div>
+    </footer>
   );
 };
+
 export default Footer;

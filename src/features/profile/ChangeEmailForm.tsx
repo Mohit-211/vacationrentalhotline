@@ -1,62 +1,60 @@
 "use client";
 
-import { Form, Input, Button, message } from "antd";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
+import { Input } from "@/components/ui/Input";
 import { requestEmailChange } from "@/lib/api/auth";
+import { isEmail } from "@/lib/validation";
 
-const ChangeEmailForm = ({
-  onEmailChangeSuccess,
-}: {
-  onEmailChangeSuccess: () => void;
-}) => {
+const schema = z.object({
+  email: z.string().min(1, "Please input your new email!").refine(isEmail, "Please enter a valid email!"),
+});
+type ChangeEmailValues = z.infer<typeof schema>;
+
+const ChangeEmailForm = ({ onEmailChangeSuccess }: { onEmailChangeSuccess: () => void }) => {
   const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ChangeEmailValues>({ resolver: zodResolver(schema), mode: "onChange", defaultValues: { email: "" } });
 
-  const handleEmailChange = async (values: { email: string }) => {
+  const handleEmailChange = async (values: ChangeEmailValues) => {
     const formData = {
-      newEmail: values.email, // Ensure you are sending the correct key expected by your API
+      newEmail: values.email,
     };
 
     setLoading(true);
 
     try {
-      const response = await requestEmailChange(formData); // Call your API to update the email
+      const response = await requestEmailChange(formData);
       if (response?.data?.message) {
-        message.success(response.data.message || "Email updated successfully");
-        onEmailChangeSuccess(); // Notify parent on success
+        toast.success(response.data.message || "Email updated successfully");
+        onEmailChangeSuccess();
       } else {
-        message.error("Failed to update email. Please try again.");
+        toast.error("Failed to update email. Please try again.");
       }
     } catch (error) {
-      
       console.error("Error updating email:", error);
     } finally {
-      setLoading(false); // Ensure loading state is disabled once API response is received
+      setLoading(false);
     }
   };
 
   return (
-    <Form name="change_email" layout="vertical" onFinish={handleEmailChange}>
-      <Form.Item
-        label="New Email"
-        name="email"
-        rules={[
-          { required: true, message: "Please input your new email!" },
-          { type: "email", message: "Please enter a valid email!" },
-        ]}
-      >
-        <Input placeholder="Enter your new email" />
-      </Form.Item>
-      <Form.Item>
-        <Button
-          className="submit_btn_theme m-0"
-          htmlType="submit"
-          loading={loading}
-          block
-        >
-          Update Email
-        </Button>
-      </Form.Item>
-    </Form>
+    <form noValidate onSubmit={handleSubmit(handleEmailChange)} className="grid max-w-md gap-5">
+      <FormField id="change_email_email" label="New Email" required error={errors.email?.message}>
+        <Input type="email" placeholder="Enter your new email" autoComplete="email" {...register("email")} />
+      </FormField>
+      <Button type="submit" size="lg" loading={loading} className="w-full">
+        Update Email
+      </Button>
+    </form>
   );
 };
 

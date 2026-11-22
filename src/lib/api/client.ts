@@ -1,5 +1,5 @@
 import axios, { type AxiosError } from "axios";
-import { message } from "antd";
+import { toast } from "sonner";
 import { clearToken, getToken } from "@/lib/session";
 import type { ApiErrorBody } from "./types";
 
@@ -44,27 +44,27 @@ apiHelper.interceptors.response.use(
         status === 401 ||
         error?.response?.data?.message === "Please authenticate"
       ) {
-        message.error("Please Login to Continue")
+        toast.error("Please Login to Continue")
         window.location.href = "/login";
         clearToken();
       } else if (
         status === 404 ||
         error?.response?.data?.message === "User Not Found"
       ) {
-        message.error(error?.response?.data?.message);
+        toast.error(error?.response?.data?.message);
         window.location.href = "/login";
         clearToken();
       } else if (status === 500 ||error?.response?.data?.message === "jwt expire" ) {
-        message.error("Server error, please try again later.");
+        toast.error("Server error, please try again later.");
         window.location.href = "/login";
         clearToken();
       } else {
-        message.error(error.response.data.message || "An error occurred.");
+        toast.error(error.response.data.message || "An error occurred.");
       }
     } else if (error.request) {
-      message.error("Network error, please check your internet connection.");
+      toast.error("Network error, please check your internet connection.");
     } else {
-      message.error(error.message || "An unknown error occurred.");
+      toast.error(error.message || "An unknown error occurred.");
     }
     return Promise.reject(error);
   }

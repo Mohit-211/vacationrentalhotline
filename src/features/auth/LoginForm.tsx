@@ -1,25 +1,44 @@
 "use client";
 
-import { Button, Form, Input, message } from "antd";
-import React, { useState } from "react";
-import styles from "./LoginForm.module.scss";
+import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IoMdArrowRoundBack } from "react-icons/io";
-import Logo from "@public/logo-2.png";
-import Image from "next/image";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
+import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { login } from "@/lib/api/auth";
-import type { LoginInput } from "@/lib/api/types";
 import { setToken } from "@/lib/session";
+import { AuthCard, authLinkClasses } from "./AuthCard";
+
+const schema = z.object({
+  email: z.string().min(1, "Please input your Email!"),
+  password: z.string().min(1, "Please input your password!"),
+});
+type LoginValues = z.infer<typeof schema>;
 
 const LoginForm = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginValues>({
+    resolver: zodResolver(schema),
+    mode: "onChange",
+    defaultValues: { email: "", password: "" },
+  });
 
-  const onFinish = async (values: LoginInput) => {
+  const onFinish = async (values: LoginValues) => {
     setLoading(true);
     try {
       const response = await login(values);
-      message.success(response?.data?.message);
+      toast.success(response?.data?.message);
       if (response.status === 200) {
         const token = response?.data?.data?.tokens?.access?.token;
         setToken(token);
@@ -33,89 +52,34 @@ const LoginForm = () => {
   };
 
   return (
-    <div className={styles.Login}>
-      <div className={styles.Login_inner}>
-        <div className="main_heading">
-          <div
-            onClick={() => {
-              router.push("/");
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <Image src={Logo} height={50} alt="Logo" />
-          </div>
-          <div
-            className="innerheading"
-            onClick={() => {
-              router.push("/");
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <IoMdArrowRoundBack />
-            <div>Go to Home</div>
-          </div>
-        </div>
-        <h4>Login</h4>
-        <div className={styles?.bottomText}>
-          Don't have an account?{" "}
-          <span
-            onClick={() => {
-              router.push("/signup");
-            }}
-            style={{ cursor: "pointer", color: "blue" }}
-          >
+    <AuthCard
+      title="Login"
+      description={
+        <>
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className={authLinkClasses}>
             Sign up
-          </span>
-        </div>
-
-        <Form name="loginForm" onFinish={onFinish} layout="vertical">
-          <Form.Item
-            label="Email"
-            name="email"
-            rules={[
-              {
-                required: true,
-                message: "Please input your Email!",
-              },
-            ]}
-          >
-            <Input placeholder="Enter Email Address" />
-          </Form.Item>
-          <Form.Item
-            label="Password"
-            name="password"
-            rules={[
-              {
-                required: true,
-                message: "Please input your password!",
-              },
-            ]}
-          >
-            <Input.Password placeholder="*****" />
-          </Form.Item>
-
-          <Form.Item>
-            <Button
-              htmlType="submit"
-              className="submit_btn_theme"
-              loading={loading}
-            >
-              Sign In
-            </Button>
-          </Form.Item>
-
-          <div
-            style={{ cursor: "pointer", marginBottom: "20px" }}
-            className={styles?.bottomText}
-            onClick={() => {
-              router.push("/forgot-password");
-            }}
-          >
+          </Link>
+        </>
+      }
+    >
+      <form noValidate onSubmit={handleSubmit(onFinish)} className="grid gap-5">
+        <FormField id="loginForm_email" label="Email" required error={errors.email?.message}>
+          <Input placeholder="Enter Email Address" autoComplete="email" {...register("email")} />
+        </FormField>
+        <FormField id="loginForm_password" label="Password" required error={errors.password?.message}>
+          <PasswordInput placeholder="*****" autoComplete="current-password" {...register("password")} />
+        </FormField>
+        <div className="-mt-2 text-right text-sm">
+          <Link href="/forgot-password" className={authLinkClasses}>
             Forgot Password
-          </div>
-        </Form>
-      </div>
-    </div>
+          </Link>
+        </div>
+        <Button type="submit" size="lg" loading={loading} className="w-full">
+          Sign In
+        </Button>
+      </form>
+    </AuthCard>
   );
 };
 

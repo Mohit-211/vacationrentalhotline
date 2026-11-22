@@ -1,103 +1,80 @@
-"use client";
+import { CircleCheck, Phone } from "lucide-react";
+import { Container } from "@/components/ui/Container";
+import { Section, SectionHeading } from "@/components/ui/Section";
+import { cn } from "@/lib/utils";
+import PurchaseButton from "./PurchaseButton";
 
-import React from "react";
-import styles from "./Pricing.module.scss";
-import { Container } from "react-bootstrap";
-import { FaCheckCircle } from "react-icons/fa";
-import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/session";
+const plans = [
+  {
+    name: "Single Property",
+    price: "$250",
+    features: ["Calls answered 24/7", "365 days per year", "Text to owner if a call received"],
+    featured: false,
+  },
+  {
+    name: "2-5 Properties",
+    price: "$200",
+    features: [
+      "Calls answered 24/7",
+      "365 days per year",
+      "Text to owner if a call received",
+      "Email to owner / property manager",
+    ],
+    featured: true,
+  },
+];
+
 const Pricing = () => {
-  const router = useRouter();
-  const token = getToken();
-
   return (
-    <section className={styles.plansContainer}>
-      <div className={styles.plans}>
-        <Container>
-          <div className={styles.plansHero}>
-            <h2>Our Pricing Plan</h2>
-            <p className={styles.para}>
-              We have the best plan options as per your needs
-            </p>
-          </div>
-          <div className={styles.planItemContainer}>
-            <div className={styles.planItem}>
-              <div className={styles.cardHeader}>
-                <h6>Single Property</h6>
-              </div>
-              <ul className={styles.featureList}>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>Calls answered 24/7</span>
-                </li>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>365 days per year.</span>
-                </li>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>Text to owner if a call received</span>
-                </li>
-                <h4>$250</h4>
-                <p>per year-per property.</p>
+    <Section>
+      <Container>
+        <SectionHeading
+          align="center"
+          title="Our Pricing Plan"
+          description="We have the best plan options as per your needs"
+        />
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          {plans.map((plan) => (
+            <div
+              key={plan.name}
+              className={cn(
+                "flex flex-col rounded-2xl border bg-surface p-8 shadow-sm",
+                plan.featured ? "border-primary-strong shadow-lg ring-1 ring-primary-strong" : "border-border"
+              )}
+            >
+              <h3 className="text-lg font-bold">{plan.name}</h3>
+              <p className="mt-6 flex items-baseline gap-2">
+                <span className="font-heading text-5xl font-extrabold tracking-tight">{plan.price}</span>
+                <span className="text-sm text-muted-foreground">per year, per property</span>
+              </p>
+              <ul className="mt-8 flex-1 space-y-3">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3 text-sm">
+                    <CircleCheck className="size-5 shrink-0 text-secondary-strong" aria-hidden="true" />
+                    {feature}
+                  </li>
+                ))}
               </ul>
-              <button
-                className={styles.button}
-                onClick={() =>
-                  token ? router.push("/dashboard") : router.push("/login")
-                }
-              >
+              <PurchaseButton size="lg" variant={plan.featured ? "primary" : "outline"} className="mt-8 w-full">
                 Purchase Plan
-              </button>
+              </PurchaseButton>
             </div>
-            <div className={styles.planItem}>
-              <div className={styles.cardHeader}>
-                <h6>2-5 Properties</h6>
-              </div>
-              <ul className={styles.featureList}>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>Calls answered 24/7</span>
-                </li>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>365 days per year.</span>
-                </li>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>Text to owner if a call received</span>
-                </li>
-                <li>
-                  <FaCheckCircle size={20} className={styles.svgicon} />
-                  <span>Email to owner /property manager.</span>
-                </li>
-                <h4>$200</h4>
-                <p>per year-per property.</p>
-              </ul>
-              <button
-                className={styles.button}
-                onClick={() =>
-                  token ? router.push("/dashboard") : router.push("/login")
-                }
-              >
-                Purchase Plan
-              </button>
-            </div>
-            <div className={styles.planItem1}>
-              <div className={styles.card}>
-                <div>
-                  <h5>5 Properties or More</h5>
-                  <small style={{ color: "black" }}>
-                    Please call us for pricing
-                  </small>
-                  <h3>(844) 6-HOTLINE</h3>
-                </div>
-              </div>
-            </div>
+          ))}
+          <div className="flex flex-col justify-center rounded-2xl bg-linear-to-br from-primary-strong to-primary-stronger p-8 text-on-strong shadow-lg">
+            <h3 className="text-lg font-bold text-on-strong">5 Properties or More</h3>
+            <p className="mt-3">Please call us for pricing</p>
+            <a
+              href="tel:+18446468546"
+              className="mt-6 inline-flex items-center gap-3 font-heading text-2xl font-extrabold tracking-tight whitespace-nowrap underline-offset-4 hover:underline"
+            >
+              <Phone className="size-6 shrink-0" aria-hidden="true" />
+              (844) 6-HOTLINE
+            </a>
           </div>
-        </Container>
-      </div>
-    </section>
+        </div>
+      </Container>
+    </Section>
   );
 };
+
 export default Pricing;

@@ -1,42 +1,30 @@
-"use client";
-
-import React from "react";
-import styles from "./CallCoverage.module.scss";
-import Section4image from "@public/assets/section4image.png";
 import Image from "next/image";
-import { Button, Container } from "react-bootstrap";
-import { IoIosArrowForward } from "react-icons/io";
-import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/session";
-const CallCoverage = () => {
-  const router = useRouter();
-  const token = getToken();
+import Section4image from "@public/assets/section4image.png";
+import { Container } from "@/components/ui/Container";
+import { Section } from "@/components/ui/Section";
+import PurchaseButton from "./PurchaseButton";
 
+const CallCoverage = () => {
   return (
-    <div className={styles.Section4}>
-      <Container>
-        <div className={styles.main}>
-          <div className={styles.left}>
-            <Image src={Section4image} alt="" className={styles.BannerImage} />
-          </div>
-          <div className={styles.right}>
-            <h4>
-              Vacation Rental Hotline ensures a person is there to take a call
-              everyday Add we have a live representative on call 24/7 365 days a
-              year. What ever time zone you are in.
-            </h4>
-            <Button
-              className={styles.PurchaseButton}
-              onClick={() =>
-                token ? router.push("/dashboard") : router.push("/login")
-              }
-            >
-              Purchase Now <IoIosArrowForward />
-            </Button>
-          </div>
+    <Section className="bg-linear-to-br from-primary-strong to-primary-stronger">
+      <Container className="grid items-center gap-12 lg:grid-cols-[2fr_3fr]">
+        <Image
+          src={Section4image}
+          alt=""
+          sizes="(min-width: 1024px) 24rem, 80vw"
+          className="mx-auto w-full max-w-sm rounded-3xl shadow-xl"
+        />
+        <div>
+          <h2 className="text-3xl leading-tight font-bold text-on-strong sm:text-4xl">
+            Vacation Rental Hotline ensures a person is there to take a call every day, and we have a live
+            representative on call 24/7 365 days a year, whatever time zone you are in.
+          </h2>
+          <PurchaseButton size="lg" variant="inverse" className="mt-8">
+            Purchase Now
+          </PurchaseButton>
         </div>
       </Container>
-    </div>
+    </Section>
   );
 };
 

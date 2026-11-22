@@ -1,44 +1,50 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-  Container,
-  Nav,
-  NavDropdown,
-  Navbar,
-  OverlayTrigger,
-  Tooltip,
-  Offcanvas,
-} from "react-bootstrap";
-import styles from "./Header.module.scss";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import Logo from "@public/logo-2.png";
-import Image from "next/image";
+import { useState } from "react";
+import { ChevronDown, KeyRound, LayoutDashboard, LogOut, Menu, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Container } from "@/components/ui/Container";
 import {
-  getToken,
-  clearToken,
-} from "@/lib/session";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
+import { Logo } from "@/components/ui/Logo";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
+import { clearToken, getToken } from "@/lib/session";
+import { useIsClient } from "@/lib/useIsClient";
+
+const sections = [
+  { id: "banner-section", label: "Home" },
+  { id: "about-section", label: "About" },
+  { id: "contact-us", label: "Contact" },
+];
+
+const navLinkClasses =
+  "rounded-md px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted hover:text-primary-strong";
+const sheetLinkClasses =
+  "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-base font-semibold text-foreground transition-colors hover:bg-surface-muted [&_svg]:size-5 [&_svg]:text-muted-foreground";
 
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const token = getToken();
-  const [showOffcanvas, setShowOffcanvas] = useState(false);
+  const isClient = useIsClient();
+  const token = isClient ? getToken() : null;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const showSectionLinks = isClient && pathname === "/";
+
   const handleScrollLinkClick = (sectionId: string) => {
     const path = "/";
     if (pathname !== path) {
       router.push(`${path}#${sectionId}`);
     } else {
-      document
-        .getElementById(sectionId)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
-
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const handleLogout = () => {
     router.push("/");
@@ -46,175 +52,125 @@ const Header = () => {
   };
 
   return (
-    <div className={styles.headerSection}>
-      <Navbar collapseOnSelect expand="lg" className="bg-body-tertiary">
-        <Container>
-          <Navbar.Brand href="/">
-            <Image src={Logo} height={50} alt="Logo" />
-          </Navbar.Brand>
-          <Navbar.Toggle
-            aria-controls="responsive-navbar-nav"
-            onClick={() => setShowOffcanvas(true)}
-          />
-          <div className="desktop">
-            <Nav>
-              {isClient && pathname === "/" && (
-                <>
-                  <Nav.Link
-                    className="nav-link"
-                    onClick={() => handleScrollLinkClick("banner-section")}
-                  >
-                    Home
-                  </Nav.Link>
-                  <Nav.Link
-                    className="nav-link"
-                    onClick={() => handleScrollLinkClick("about-section")}
-                  >
-                    About
-                  </Nav.Link>
-                  <Nav.Link
-                    className="nav-link"
-                    onClick={() => handleScrollLinkClick("contact-us")}
-                  >
-                    Contact
-                  </Nav.Link>
-                </>
-              )}
+    <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
+      <Container className="flex h-16 items-center justify-between gap-4">
+        <Link href="/" className="shrink-0 rounded-md">
+          <Logo priority className="h-9 sm:h-10" />
+        </Link>
 
+        {/* Desktop */}
+        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+          {showSectionLinks &&
+            sections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={navLinkClasses}
+                onClick={() => handleScrollLinkClick(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+          {!isClient ? (
+            // Reserve the account area's space until the session is known.
+            <div className="ml-3 h-9 w-44" aria-hidden="true" />
+          ) : token ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="ml-3">
+                  <UserRound aria-hidden="true" />
+                  My Account
+                  <ChevronDown aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => router.push("/profile")}>
+                  <UserRound aria-hidden="true" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => router.push("/dashboard")}>
+                  <LayoutDashboard aria-hidden="true" />
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleLogout}>
+                  <LogOut aria-hidden="true" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="ml-3 flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => router.push("/signup")}>
+                Sign Up
+              </Button>
+              <Button size="sm" onClick={() => router.push("/login")}>
+                Login
+              </Button>
+            </div>
+          )}
+        </nav>
+
+        {/* Mobile */}
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
+              <Menu className="size-6" aria-hidden="true" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Menu</SheetTitle>
+            </SheetHeader>
+            <nav aria-label="Main" className="grid gap-1">
+              {showSectionLinks &&
+                sections.map((section) => (
+                  <SheetClose asChild key={section.id}>
+                    <button type="button" className={sheetLinkClasses} onClick={() => handleScrollLinkClick(section.id)}>
+                      {section.label}
+                    </button>
+                  </SheetClose>
+                ))}
               {isClient && token ? (
-                <NavDropdown title="My Account" id="basic-nav-dropdown">
-                  <OverlayTrigger
-                    placement="right"
-                    overlay={
-                      <Tooltip id="tooltip-logout">
-                        Logout from your account
-                      </Tooltip>
-                    }
-                  >
-                    <>
-                      <NavDropdown.Item>
-                        <div
-                          className="item_btn"
-                          onClick={() => router.push("/profile")}
-                        >
-                          Profile
-                        </div>
-                      </NavDropdown.Item>
-                      <NavDropdown.Item>
-                        <div
-                          className="item_btn"
-                          onClick={() => router.push("/dashboard")}
-                        >
-                          Dashboard
-                        </div>
-                      </NavDropdown.Item>
-                      <NavDropdown.Item>
-                        <div className="item_btn" onClick={handleLogout}>
-                          Logout
-                        </div>
-                      </NavDropdown.Item>
-                    </>
-                  </OverlayTrigger>
-                </NavDropdown>
-              ) : (
                 <>
-                  <Nav.Link
-                    className={styles.Login}
-                    onClick={() => {
-                      const path = "/signup";
-                      router.push(path);
-                    }}
-                  >
-                    Sign Up
-                  </Nav.Link>
-                  <Nav.Link
-                    className={styles.Login}
-                    onClick={() => router.push("/login")}
-                  >
-                    Login
-                  </Nav.Link>
+                  <SheetClose asChild>
+                    <button type="button" className={sheetLinkClasses} onClick={() => router.push("/change-password")}>
+                      <KeyRound aria-hidden="true" />
+                      Change Password
+                    </button>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <button type="button" className={sheetLinkClasses} onClick={() => router.push("/dashboard")}>
+                      <LayoutDashboard aria-hidden="true" />
+                      Dashboard
+                    </button>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <button type="button" className={sheetLinkClasses} onClick={handleLogout}>
+                      <LogOut aria-hidden="true" />
+                      Logout
+                    </button>
+                  </SheetClose>
                 </>
+              ) : (
+                <div className="mt-4 grid gap-2">
+                  <SheetClose asChild>
+                    <Button size="lg" onClick={() => router.push("/login")}>
+                      Login
+                    </Button>
+                  </SheetClose>
+                  <SheetClose asChild>
+                    <Button size="lg" variant="outline" onClick={() => router.push("/signup")}>
+                      Sign Up
+                    </Button>
+                  </SheetClose>
+                </div>
               )}
-            </Nav>
-          </div>
-        </Container>
-      </Navbar>
-
-      <Offcanvas show={showOffcanvas} onHide={() => setShowOffcanvas(false)}>
-        <Offcanvas.Body>
-          <Nav className="flex-column">
-            {isClient && pathname === "/" && (
-              <>
-                <Nav.Link
-                  className="nav-link"
-                  onClick={() => handleScrollLinkClick("banner-section")}
-                >
-                  Home
-                </Nav.Link>
-                <Nav.Link
-                  className="nav-link"
-                  onClick={() => handleScrollLinkClick("about-section")}
-                >
-                  About
-                </Nav.Link>
-                <Nav.Link
-                  className="nav-link"
-                  onClick={() => handleScrollLinkClick("contact-us")}
-                >
-                  Contact
-                </Nav.Link>
-              </>
-            )}
-            {isClient && token ? (
-              <>
-                <NavDropdown.Item>
-                  <div
-                    className="item_btn"
-                    style={{ marginTop: "10px", width: "200px" }}
-                    onClick={() => router.push("/change-password")}
-                  >
-                    Change Password
-                  </div>
-                </NavDropdown.Item>
-                <NavDropdown.Item>
-                  <div
-                    className="item_btn"
-                    style={{ marginTop: "10px", width: "200px" }}
-                    onClick={() => router.push("/dashboard")}
-                  >
-                    Dashboard
-                  </div>
-                </NavDropdown.Item>
-                <NavDropdown.Item>
-                  <div
-                    className="item_btn"
-                    style={{ marginTop: "10px", width: "200px" }}
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </div>
-                </NavDropdown.Item>
-              </>
-            ) : (
-              <>
-                <Nav.Link
-                  className="res_Login"
-                  onClick={() => router.push("/signup")}
-                >
-                  Sign Up
-                </Nav.Link>
-                <Nav.Link
-                  className="res_Login"
-                  onClick={() => router.push("/login")}
-                >
-                  Login
-                </Nav.Link>
-              </>
-            )}
-          </Nav>
-        </Offcanvas.Body>
-      </Offcanvas>
-    </div>
+            </nav>
+          </SheetContent>
+        </Sheet>
+      </Container>
+    </header>
   );
 };
 
