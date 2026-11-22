@@ -4,6 +4,10 @@ const steps = [
     text: "Turn on Switch to CSV Upload at the top of the page to begin the upload process.",
   },
   {
+    title: "Fill In the Sample File:",
+    text: "Download the sample CSV, replace its example row with your properties (one per row), and save it as CSV.",
+  },
+  {
     title: "Select a Field on the Form:",
     text: "Look at the form with fields listed on the page. Fields marked with * are required, while others are optional.",
   },

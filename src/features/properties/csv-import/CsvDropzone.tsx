@@ -12,6 +12,12 @@ interface CsvDropzoneProps {
   setError: (error: string | null) => void;
 }
 
+/**
+ * Goes by the file name: with Excel installed, Windows reports .csv files as
+ * application/vnd.ms-excel rather than text/csv, and some systems report no type.
+ */
+const isCsvFile = (file: File) => /\.csv$/i.test(file.name) || file.type === "text/csv";
+
 const CsvDropzone = ({ onFile, setData, setFileChosen, setError }: CsvDropzoneProps) => {
   const [fileName, setFileName] = useState("");
   const [isFileUploaded, setIsFileUploaded] = useState(false);
@@ -20,7 +26,7 @@ const CsvDropzone = ({ onFile, setData, setFileChosen, setError }: CsvDropzonePr
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const acceptFile = (file: File) => {
-    if (file.type !== "text/csv") {
+    if (!isCsvFile(file)) {
       setErrorMessage("Only CSV files are allowed.");
       return;
     }
@@ -81,7 +87,7 @@ const CsvDropzone = ({ onFile, setData, setFileChosen, setError }: CsvDropzonePr
           )}
         </div>
         <p className="mt-4 font-heading text-lg font-semibold" aria-live="polite">
-          {isFileUploaded ? `${fileName} File Dropped Successfully!` : "Drag & drop a CSV file here"}
+          {isFileUploaded ? `${fileName} selected` : "Drag & drop a CSV file here"}
         </p>
         {isFileUploaded ? (
           <div className="mt-4 flex gap-2">

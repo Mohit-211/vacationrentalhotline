@@ -75,9 +75,20 @@ const CsvImport = () => {
     if (file) {
       Papa.parse<CsvRow>(file, {
         header: true,
-        skipEmptyLines: true,
+        // Also skips rows of nothing but commas, which spreadsheets often leave at the end.
+        skipEmptyLines: "greedy",
         complete: (result) => {
-          if (!result.data || result.data.length === 0) {
+          if (result.errors.length > 0) {
+            // A malformed row (an unclosed quote, an extra comma) would shift its
+            // values into the wrong columns, so stop and say where.
+            const problems = [...result.errors]
+              .sort((a, b) => (a.row ?? -1) - (b.row ?? -1))
+              .slice(0, 3)
+              .map((problem) => (problem.row === undefined ? problem.message : `row ${problem.row + 2}: ${problem.message}`));
+            const more = result.errors.length > 3 ? ` (and ${result.errors.length - 3} more)` : "";
+            setError(`This file couldn't be read. Check ${problems.join("; ")}${more}.`);
+            setData([]);
+          } else if (!result.data || result.data.length === 0) {
             setError("Your CSV file cannot be empty.");
             setData([]);
           } else {
