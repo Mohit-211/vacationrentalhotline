@@ -11,7 +11,7 @@ import { coverEndedMessage, receiptMessage, staffCoverEndedMessage } from "@/ser
 import { serverEnv } from "@/server/env";
 import { HttpError, notFound } from "@/server/http";
 import { COVER_PRODUCT_ID, ensureCoverProduct, fromUnix, fromUnixOrNull, idOf, stripe } from "@/server/stripe";
-import { propertyStatus, type PropertyRow } from "./properties";
+import { hasPaidCover, propertyStatus, type PropertyRow } from "./properties";
 
 // Yearly, auto-renewing cover through Stripe Billing. One checkout is one
 // Stripe subscription with one item per property, so each property can stop
@@ -537,6 +537,52 @@ export async function endCoverNow(property: PropertyRow, actorId: string): Promi
     .update(properties)
     .set({ subscriptionEndsAt: new Date(), autoRenews: false, expiryNoticeSentAt: null })
     .where(eq(properties.id, property.id));
+}
+
+// ---- Moving cover ----------------------------------------------------------------
+
+/**
+ * Staff: moves a property's paid cover to another of the same customer's
+ * properties, one that isn't covered, then deletes the first (the owner sold
+ * it, say). The cover keeps its paid-through date and renewal, and nothing is
+ * charged or refunded. Stripe isn't asked: renewals find their property
+ * through subscription_items, which move with the cover.
+ */
+export async function moveCover(from: PropertyRow, toPropertyId: string): Promise<void> {
+  const now = new Date();
+  if (!hasPaidCover(from, now)) throw new HttpError(409, "NOT_COVERED", "This property has no paid cover to move.");
+  const [to] = await db()
+    .select()
+    .from(properties)
+    .where(and(eq(properties.id, toPropertyId), eq(properties.userId, from.userId)))
+    .limit(1);
+  if (!to) throw notFound("Property");
+  if (propertyStatus(to, now) === "active") {
+    throw new HttpError(409, "ALREADY_COVERED", `${formatAddress(to)} is already covered. Choose one that isn't.`);
+  }
+  // A checkout left open for the new property could otherwise still charge for it.
+  await abandonUnpaidCheckouts([to.id]);
+
+  await db().transaction(async (tx) => {
+    // The items of the subscription paying for it now (renewing or not);
+    // older ones stay with the deleted property's address, as history.
+    const current = await tx
+      .select({ id: subscriptionItems.id })
+      .from(subscriptionItems)
+      .innerJoin(subscriptions, eq(subscriptionItems.subscriptionId, subscriptions.id))
+      .where(and(eq(subscriptionItems.propertyId, from.id), inArray(subscriptions.status, [...LIVE_STATUSES])));
+    if (current.length > 0) {
+      await tx
+        .update(subscriptionItems)
+        .set({ propertyId: to.id, propertyLabel: formatAddress(to).slice(0, 500) })
+        .where(inArray(subscriptionItems.id, current.map((row) => row.id)));
+    }
+    await tx
+      .update(properties)
+      .set({ subscriptionEndsAt: from.subscriptionEndsAt, autoRenews: from.autoRenews, expiryNoticeSentAt: null })
+      .where(eq(properties.id, to.id));
+    await tx.delete(properties).where(eq(properties.id, from.id));
+  });
 }
 
 // ---- Free cover ------------------------------------------------------------------

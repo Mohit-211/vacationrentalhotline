@@ -71,7 +71,7 @@ the menu alone: the API checks every call.
 | `dashboard.view` | The dashboard figures |
 | `customers.view` | Looking up customers, their properties, notes and payments |
 | `customers.manage` | Creating, editing and deleting customers, their properties and notes |
-| `billing.manage` | Cancelling renewals, ending cover, free cover |
+| `billing.manage` | Cancelling renewals, ending or moving cover, free cover |
 | `messages.view` | Reading contact-form messages |
 | `messages.manage` | Deleting contact-form messages |
 | `activity.view` | The sign-in history |
@@ -152,22 +152,31 @@ createdAt, updatedAt }`.
   `address_line_1/2` → `addressLine1/2`, `zip_code` → `postalCode`, `country` / `state` (names) → `countryCode` /
   `regionCode` (codes). `subscription_start_date` and `validity` are gone: use `payments[]` and `subscriptionEndsAt`.
 
-### Subscriptions: how to cancel (`billing.manage`)
+### Subscriptions: cancelling and moving cover (`billing.manage`)
 
-Cover is a yearly Stripe subscription that renews automatically, one item per property. There are two ways to stop
-it, both from the property's details:
+Cover is a yearly Stripe subscription that renews automatically, one item per property. Customers can add as many
+properties as they like; each stays inactive until paid for. From a property's details, staff can stop its cover or
+move it:
 
 | Choice | Call | What happens |
 | --- | --- | --- |
 | **Cancel renewal** | `POST /admin/properties/:id/cancel-renewal` | The property won't renew. It stays covered until `subscriptionEndsAt`, with no refund. This is what a customer can do themselves from the site. |
 | **End cover now** | `POST /admin/properties/:id/end-cover` (no body) | Cover ends immediately and renewal stops. Nothing is refunded. The response is the property's details. |
+| **Move cover** | `POST /admin/properties/:id/move-cover` `{ toPropertyId }` | The paid cover moves to another of the customer's properties that isn't covered, with the same paid-through date and renewal; nothing is charged or refunded. This property is then deleted, with its notes. The response is the newly covered property's details. |
 
 - Show "Cancel renewal" while `autoRenews` is true, and "End cover now" while the property is active and not
   `complimentary`. Confirm before ending cover: to get it back, the customer has to pay again.
 - The customer gets an email when cover ends (on the next scheduled run, within 15 minutes), with a copy to
   info@vacationrentalhotline.com.
-- 409 codes: `NOT_RENEWING` (nothing to cancel), `NOT_COVERED` (nothing to end), `COVERED_FREE` (the property is
-  covered by the customer's free cover: turn that off instead). 502 or 503 means Stripe failed or isn't set up.
+- **Move cover** is for an owner who sold a property and wants another one covered for the rest of the year. Offer
+  it on a property with paid cover, and let staff pick the target from the customer's inactive properties. Confirm
+  first: the first property and its notes are deleted. Its past payments stay on record under its address. Later
+  renewals and receipts go to the new property. Stripe's subscription item still shows the first address in its
+  metadata; the app keeps track of which property it covers.
+- 409 codes: `NOT_RENEWING` (nothing to cancel), `NOT_COVERED` (nothing to end or move), `COVERED_FREE` (the
+  property is covered by the customer's free cover: turn that off instead), `ALREADY_COVERED` (the property to move
+  cover to is covered already). 404 if that property isn't the same customer's. 502 or 503 means Stripe failed or
+  isn't set up.
 
 **Refunds are made by hand, in Stripe's dashboard** (Payments, open the payment, Refund). The app never refunds on
 its own. Stripe tells the app about the refund, and the payment then shows it (`refundedCents`, and `status`

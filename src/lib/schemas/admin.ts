@@ -52,4 +52,7 @@ export const freeCoverSchema = z
   })
   .strict();
 
+/** Where a property's paid cover goes (another of the same customer's properties). */
+export const moveCoverSchema = z.object({ toPropertyId: z.uuid("Invalid property id.") }).strict();
+
 export const adminProfileSchema = z.object({ name: personNameSchema }).strict();
