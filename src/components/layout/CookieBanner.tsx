@@ -6,31 +6,39 @@ import { Cookie } from "lucide-react";
 import { hasCookie, setCookie } from "cookies-next";
 import { Button } from "@/components/ui/Button";
 
-const CONSENT_COOKIE = "Vacation Rental Cookies";
+const CONSENT_COOKIE = "vrh_cookie_consent";
+/**
+ * The old name. Spaces aren't allowed in cookie names, and cookies-next 6
+ * refuses to write one (both buttons threw), but browsers that stored it
+ * earlier still count as having chosen.
+ */
+const LEGACY_CONSENT_COOKIE = "Vacation Rental Cookies";
 const subscribe = () => () => {};
 
+/** Remembers Allow ("true") or Deny ("false") for a year, so the banner doesn't come back. */
+const remember = (choice: boolean) => {
+  const expires = new Date();
+  expires.setFullYear(expires.getFullYear() + 1);
+  setCookie(CONSENT_COOKIE, choice, { expires });
+};
+
 const CookieBanner = () => {
-  // The server can't see the cookie, so the banner renders there and hides
-  // after hydration for people who already accepted.
-  const accepted = useSyncExternalStore(
+  // Whether the visitor has chosen; null on the server, which can't tell.
+  // Rendering nothing until the browser knows means the banner never
+  // flashes up for people who already chose.
+  const decided = useSyncExternalStore(
     subscribe,
-    () => hasCookie(CONSENT_COOKIE),
-    () => false
+    () => hasCookie(CONSENT_COOKIE) || hasCookie(LEGACY_CONSENT_COOKIE),
+    () => null
   );
   const [dismissed, setDismissed] = useState(false);
 
-  const acceptCookies = () => {
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-    setCookie(CONSENT_COOKIE, true, { expires: expiryDate });
+  const choose = (choice: boolean) => {
+    remember(choice);
     setDismissed(true);
   };
 
-  const declineCookies = () => {
-    setDismissed(true);
-  };
-
-  if (accepted || dismissed) {
+  if (decided !== false || dismissed) {
     return null;
   }
 
@@ -54,10 +62,10 @@ const CookieBanner = () => {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button variant="outline" size="sm" onClick={declineCookies}>
+          <Button variant="outline" size="sm" onClick={() => choose(false)}>
             Deny
           </Button>
-          <Button size="sm" onClick={acceptCookies}>
+          <Button size="sm" onClick={() => choose(true)}>
             Allow
           </Button>
         </div>
