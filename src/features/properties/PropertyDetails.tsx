@@ -38,6 +38,7 @@ import { CheckoutDialog, useCheckout } from "@/features/checkout/CheckoutDialog"
 import { coverLabel, priceSummary } from "@/features/dashboard/Dashboard";
 import { findCountry, findRegion } from "@/lib/locations";
 import { useIsClient } from "@/lib/useIsClient";
+import { formatDate } from "@/lib/utils";
 
 // The same rule as the API's (src/lib/schemas/note.ts).
 const noteSchema = z.object({
@@ -189,14 +190,15 @@ const PropertyDetails = () => {
     [country?.postalCodeLabel ?? "Zip Code", value(data?.postalCode)],
   ];
   const subscriptionRows: [string, ReactNode][] = [
-    ["Subscription Purchased", data ? (data.status === "active" ? "Active Properties" : "Inactive Properties") : "---"],
-    ["Expiry Date", data?.subscriptionEndsAt?.split("T")[0] ?? "---"],
+    // Purchased once a year has been paid for, even if it has since ended.
+    ["Subscription Purchased", !data ? "---" : data.complimentary ? "Free cover" : data.subscriptionEndsAt ? "Yes" : "No"],
+    ["Expiry Date", data?.subscriptionEndsAt ? formatDate(data.subscriptionEndsAt) : "---"],
     [
       "Validity",
       data?.complimentary
         ? "Free cover (no charge)"
         : data?.status === "active"
-          ? `1 year, ${coverLabel(data).toLowerCase()}`
+          ? `1 year, ${coverLabel(data).replace(/^\w/, (letter) => letter.toLowerCase())}`
           : "1 year",
     ],
   ];
@@ -351,7 +353,7 @@ const PropertyDetails = () => {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel renewal?"
-        description={`This property stays covered until its paid year ends (${data?.subscriptionEndsAt?.split("T")[0] ?? ""}), then stops. You won't be charged again for it.`}
+        description={`This property stays covered until its paid year ends (${data?.subscriptionEndsAt ? formatDate(data.subscriptionEndsAt) : ""}), then stops. You won't be charged again for it.`}
         confirmLabel="Cancel renewal"
         cancelLabel="Keep renewing"
         variant="danger"

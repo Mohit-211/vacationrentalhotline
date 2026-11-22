@@ -24,6 +24,7 @@ import { cancelRenewal } from "@/lib/api/checkout";
 import { deleteProperties, listProperties } from "@/lib/api/properties";
 import type { Account, Property, PropertyStatus } from "@/lib/api/types";
 import { formatPrice, PRICING } from "@/lib/pricing";
+import { formatDate } from "@/lib/utils";
 
 const column = dataTableColumns<Property>();
 
@@ -31,13 +32,7 @@ const column = dataTableColumns<Property>();
 export const coverLabel = (property: Pick<Property, "subscriptionEndsAt" | "autoRenews" | "complimentary">) => {
   if (property.complimentary) return "Free cover";
   if (!property.subscriptionEndsAt) return "—";
-  const date = new Date(property.subscriptionEndsAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-  return `${property.autoRenews ? "Renews" : "Ends"} ${date}`;
+  return `${property.autoRenews ? "Renews" : "Ends"} ${formatDate(property.subscriptionEndsAt)}`;
 };
 
 /** What cover costs, from the same price list checkout charges. */
