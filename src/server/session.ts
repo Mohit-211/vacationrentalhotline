@@ -9,8 +9,11 @@ import { auth, type Session } from "@/server/auth";
  * still renders.
  */
 export async function currentSession(): Promise<Session | null> {
+  // Outside the try: reading the headers is how Next learns the page is
+  // dynamic, and it signals that by throwing, which mustn't be caught.
+  const requestHeaders = await headers();
   try {
-    return await auth().api.getSession({ headers: await headers() });
+    return await auth().api.getSession({ headers: requestHeaders });
   } catch (error) {
     console.error("[auth] couldn't check the session", error);
     return null;
