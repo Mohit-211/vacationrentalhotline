@@ -1,0 +1,113 @@
+.plansContainer {
+  @media (max-width: 767px) {
+    padding: 20px 0px;
+  }
+  h2 {
+    font-weight: 700;
+    text-align: left;
+  }
+  .para,
+  h4,
+  p {
+    text-align: left;
+  }
+  padding: 2rem;
+  li {
+    list-style-type: none !important;
+    background: #0194d914;
+    margin: 10px 0px;
+    padding: 10px;
+    border-radius: 50px;
+    color: gray;
+    text-align: left;
+    .svgicon {
+      color: #00a556;
+    }
+    span {
+      margin: 0px 10px;
+      color: #030303cc;
+      font-size: 14px;
+      font-family: "Figtree";
+    }
+  }
+  h6,
+  h4,
+  p {
+    margin: 10px 0px;
+  }
+  h6,
+  h4 {
+    font-weight: 700;
+  }
+}
+.plans {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.plansHero {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.planItemContainer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  @media (max-width: 767px) {
+    display: block;
+  }
+}
+.planItem,
+.planItem1 {
+  box-shadow: 0px 0px 38px 0px #0000001c;
+  border-radius: 8px;
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  @media (max-width: 767px) {
+    margin: 20px 0px;
+  }
+}
+.planItem1 {
+  justify-content: center !important;
+  @media (max-width: 767px) {
+    margin: 20px 0px;
+  }
+}
+.planItem1 {
+  .card {
+    background: #ebf6fc;
+    border-radius: 8px;
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    justify-content: center;
+  }
+}
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 10px 0px;
+  border-radius: 8px;
+}
+.featureList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem 0;
+  flex: 1;
+}
+.featureList li {
+  margin-bottom: 0.5rem;
+}
+.button {
+  background: linear-gradient(269.89deg, #00a556 -56.65%, #0194d9 122.13%);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+}

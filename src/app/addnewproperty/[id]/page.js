@@ -1,0 +1,28 @@
+"use client";
+
+import { getProperty } from "@/lib/api/properties";
+import PropertyForm from "@/features/properties/PropertyForm";
+import { useParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
+const EditPropertyPage = () => {
+  const { id } = useParams();
+  const [propertyData, setPropertyData] = useState(null);
+  useEffect(() => {
+    if (id) {
+      getProperty(id)
+        .then((res) => {
+          setPropertyData(res?.data?.data);
+        })
+        .catch((e) => {
+          console.log(e, "error");
+        });
+    }
+  }, [id]);
+  return (
+    <>
+      <PropertyForm propertyData={propertyData} />
+    </>
+  );
+};
+
+export default EditPropertyPage;
