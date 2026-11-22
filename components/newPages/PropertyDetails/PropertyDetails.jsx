@@ -14,7 +14,7 @@ import {
   DeleteNotesApi,
   EditNoteApi,
 } from "@/components/apis/notesApi";
-import { Card, Dropdown, Form, Input, Menu, message, Modal, Space } from "antd";
+import { Card, Dropdown, Form, Input, message, Modal, Space } from "antd";
 import { Button, Container } from "react-bootstrap";
 const fetchDetails = async (id, setData) => {
   try {
@@ -176,18 +176,20 @@ const PropertyDetails = () => {
                 + Add a Note
               </Button>
               <Dropdown
-                overlay={
-                  <Menu>
-                    <Menu.Item key="edit" onClick={handleEditProperty}>
-                      Edit
-                    </Menu.Item>
-                    {data?.payment_status !== "SUCCESS" && (
-                      <Menu.Item key="delete" onClick={handleDeleteProperty}>
-                        Delete
-                      </Menu.Item>
-                    )}
-                  </Menu>
-                }
+                menu={{
+                  items: [
+                    { key: "edit", label: "Edit", onClick: handleEditProperty },
+                    ...(data?.payment_status !== "SUCCESS"
+                      ? [
+                          {
+                            key: "delete",
+                            label: "Delete",
+                            onClick: handleDeleteProperty,
+                          },
+                        ]
+                      : []),
+                  ],
+                }}
               >
                 <Button className={styles.action}>
                   Action <IoIosArrowDown />
@@ -212,22 +214,20 @@ const PropertyDetails = () => {
                       <div className={styles.mainnotes}>
                         <div>{item.notes}</div>
                         <Dropdown
-                          overlay={
-                            <Menu>
-                              <Menu.Item
-                                key="edit"
-                                onClick={() => handleEdit(item.id)}
-                              >
-                                Edit
-                              </Menu.Item>
-                              <Menu.Item
-                                key="delete"
-                                onClick={() => handleDeleteNote(item.id)}
-                              >
-                                Delete
-                              </Menu.Item>
-                            </Menu>
-                          }
+                          menu={{
+                            items: [
+                              {
+                                key: "edit",
+                                label: "Edit",
+                                onClick: () => handleEdit(item.id),
+                              },
+                              {
+                                key: "delete",
+                                label: "Delete",
+                                onClick: () => handleDeleteNote(item.id),
+                              },
+                            ],
+                          }}
                         >
                           <Space>
                             <PiDotsThreeCircleVertical size={20} />
@@ -242,7 +242,7 @@ const PropertyDetails = () => {
       </Container>
       <Modal
         title={isClient && editId ? "Edit Note" : "Add a Note"}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleFormSubmit}
         onCancel={() => handleModalToggle(false)}
         okText="Save"

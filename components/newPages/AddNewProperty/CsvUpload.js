@@ -138,7 +138,7 @@ const CsvUpload = () => {
           title="Mapping Example Steps:"
           placement="right"
           onClose={toggleDrawer}
-          visible={drawerVisible}
+          open={drawerVisible}
           width={400}
         >
           <div className={styles.instructioncsv1}>

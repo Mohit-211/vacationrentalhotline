@@ -6,7 +6,6 @@ import { useRouter } from "next/router";
 import {
   Dropdown,
   Flex,
-  Menu,
   message,
   Modal,
   Space,
@@ -151,29 +150,29 @@ const Dashboard = () => {
       key: "action",
       render: (text, record) => (
         <Dropdown
-          overlay={
-            <Menu>
-              <Menu.Item
-                key="edit"
-                onClick={() => handleEditProperty(record.id)}
-              >
-                Edit
-              </Menu.Item>
-              {tabKey !== "ACTIVATE" && (
-                <>
-                  <Menu.Item
-                    key="delete"
-                    onClick={() => handleDeleteProperty(record.id)}
-                  >
-                    Delete
-                  </Menu.Item>
-                  <Menu.Item key="active" onClick={() => GetAmount(record.id)}>
-                    Activate
-                  </Menu.Item>
-                </>
-              )}
-            </Menu>
-          }
+          menu={{
+            items: [
+              {
+                key: "edit",
+                label: "Edit",
+                onClick: () => handleEditProperty(record.id),
+              },
+              ...(tabKey !== "ACTIVATE"
+                ? [
+                    {
+                      key: "delete",
+                      label: "Delete",
+                      onClick: () => handleDeleteProperty(record.id),
+                    },
+                    {
+                      key: "active",
+                      label: "Activate",
+                      onClick: () => GetAmount(record.id),
+                    },
+                  ]
+                : []),
+            ],
+          }}
         >
           <a onClick={(e) => e.preventDefault()}>
             <Space>
@@ -278,7 +277,7 @@ const Dashboard = () => {
                 </TabPane>
               </Tabs>
               <Modal
-                visible={showModal}
+                open={showModal}
                 onCancel={handleCloseModal}
                 footer={null}
               >
