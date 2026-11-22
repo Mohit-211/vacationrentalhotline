@@ -1,0 +1,61 @@
+.Section6 {
+  .main {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    align-items: center;
+
+    .right {
+      h5 {
+        font-family: "Figtree";
+        font-size: 25px;
+        font-weight: 700;
+        line-height: 43px;
+        text-align: left;
+      }
+    }
+    .left {
+      .BannerImage {
+        width: 80%;
+        height: 80%;
+        padding: 10px;
+      }
+    }
+    .call {
+      color: #0194d9;
+    }
+    .PurchaseButton {
+      background: black !important;
+      border: none;
+      border-radius: 88px;
+      color: white !important;
+      text-align: center;
+      margin: 20px 0px;
+      padding: 10px 30px ;
+    }
+    .PurchaseButton:hover {
+      background: linear-gradient(
+        269.89deg,
+        #00a556 -56.65%,
+        #0194d9 122.13%
+      ) !important;
+      border-radius: 88px;
+      color: white !important;
+      text-align: center;
+    }
+  }
+  @media (max-width:767px) {
+
+    .main{
+      display: block;
+      .left{
+        text-align: center;
+      }
+
+    }
+    .PurchaseButton{
+      width: 100%;
+      padding: 10px 0px;
+    }
+  }
+}

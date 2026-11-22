@@ -1,0 +1,115 @@
+.PropertyDetails {
+  background-color: #e4e7e9;
+  padding: 20px 0px;
+  .main_heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 {
+    font-family: "Poppins";
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 42px;
+    margin: 20px 0px;
+  }
+  .notescard{
+    margin: 20px 0px;
+  }
+  .mainnotes{
+    display: flex;
+    overflow-wrap: "anywhere";
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .main {
+    display: flex;
+    justify-content: space-between;
+    .buttonSections {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      .action,
+      .paynow {
+        border: none;
+        padding: 10px 30px;
+        border-radius: 50px;
+        height: fit-content;
+        font-weight: 700;
+      }
+      .paynow {
+        background: #212121;
+        color: white;
+      }
+      .action {
+        border: 1px solid #adadad;
+        background: var(--White, #fff);
+        color: #adadad;
+      }
+    }
+  }
+  .inner {
+    margin: 20px 0px;
+  }
+  .detailsmain {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+
+    .name {
+      font-weight: lighter;
+      margin: 1px 0px;
+      font-family: "Figtree";
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 20px;
+      text-align: left;
+    }
+    .bold {
+      font-weight: bold;
+      margin: 1px 0px;
+      font-family: "Figtree";
+      font-size: 14px;
+
+      line-height: 20px;
+      text-align: left;
+    }
+  }
+  .subscriptionContainer {
+    h6 {
+      margin: 20px 0px;
+      font-weight: 700;
+    }
+    .subscriptionmain {
+      display: flex;
+      justify-content: space-evenly;
+    
+      .name {
+        font-weight: lighter;
+        margin: 1px 0px;
+        font-family: "Figtree";
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 20px;
+        text-align: left;
+      }
+      .bold {
+        font-weight: bold;
+        margin: 1px 0px;
+        font-family: "Figtree";
+        font-size: 14px;
+  
+        line-height: 20px;
+        text-align: left;
+      }
+    }
+  }
+  .noteContainer{
+    h6 {
+        margin: 20px 0px;
+        font-weight: 700;
+      }
+  }
+  .item1 {
+    margin: 25px 0px;
+  }
+}

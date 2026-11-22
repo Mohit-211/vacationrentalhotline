@@ -1,0 +1,59 @@
+.Dashboard {
+  background-color: #e4e7e9;
+
+  h2 {
+    font-family: "Poppins";
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 42px;
+    margin: 20px 0px;
+  }
+  .main {
+    display: flex;
+    justify-content: space-between;
+    .buttonSections {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      .paynow,
+      .add_new {
+        border: none;
+        padding: 10px 30px;
+        border-radius: 50px;
+        height: fit-content;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .paynow {
+        background: #212121;
+        color: white;
+      }
+      .add_new {
+        background: linear-gradient(
+          269.89deg,
+          #00a556 -56.65%,
+          #0194d9 122.13%
+        );
+      }
+    }
+  }
+  .propertyTable {
+    margin: 20px 0px;
+    padding: 20px 0px;
+  }
+  .inner {
+    margin: 20px 0px;
+  }
+  .view_details {
+    background: linear-gradient(269.89deg, #00a556 -56.65%, #0194d9 122.13%);
+    border: none;
+  }
+  @media (max-width: 767px) {
+    .main {
+      display: block !important;
+    }
+    .view_details{
+      font-size: xx-small !important;
+    }
+  }
+}

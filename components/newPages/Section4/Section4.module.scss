@@ -1,0 +1,61 @@
+.Section4 {
+  .main {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+  
+    align-items: center;
+
+    .right {
+      h4 {
+        font-family: Figtree;
+        font-size: 25px;
+        font-weight: 700;
+        line-height: 43px;
+        text-align: left;
+      }
+    }
+    .left {
+      .BannerImage {
+        width: 80%;
+        height: 80%;
+        padding: 10px;
+      }
+    }
+    .PurchaseButton {
+      background: black !important;
+      border: none;
+      border-radius: 88px;
+      color: white !important;
+      text-align: center;
+      margin: 25px 0px;
+      padding: 10px 30px;
+    }
+    .PurchaseButton:hover {
+      background: linear-gradient(
+        269.89deg,
+        #00a556 -56.65%,
+        #0194d9 122.13%
+      ) !important;
+      border-radius: 88px;
+      color: white !important;
+      text-align: center;
+    }
+  }
+  @media (max-width: 767px) {
+    .main {
+      display: block !important;
+      .left {
+        text-align: center;
+        .BannerImage {
+          width: 70%;
+          height: 70%;
+        }
+      }
+    }
+    .PurchaseButton {
+      width: 100% !important;
+      padding: 12px 0px !important;
+    }
+  }
+}

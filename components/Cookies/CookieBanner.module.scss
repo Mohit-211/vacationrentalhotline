@@ -1,0 +1,61 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+.cookiesBox {
+  max-width: 1000px;
+  width: 100%;
+  background: linear-gradient(269.89deg, #99edc4 -56.65%, #abd8ed 122.13%);
+  margin: 0 auto;
+  color: #112d32;
+  transition: all 0.3s ease;
+  align-items: flex-start;
+  border-radius: 10px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  left: 50%;
+  padding: 12px 16px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+.cookiesText {
+  font-size: 12px;
+  margin-bottom: 15px;
+}
+.cookiesLink {
+  margin-left: 10px;
+  display: inline-block;
+  color: #0b66a2;
+  text-decoration: underline;
+  &:hover {
+    color: #8fc1e3;
+  }
+}
+.cookiesButtons {
+  display: flex;
+}
+.cookiesBtn {
+  font-size: 16px;
+  padding: 10px 25px;
+ 
+  background-color: white;
+  color: black;
+  border-radius: 3px;
+  border: none;
+  transition: background 0.3s;
+  cursor: pointer;
+  &:hover {
+    background: linear-gradient(269.89deg, #00a556 -56.65%, #0194d9 122.13%);
+    color: white;
+  }
+}
+.cookiesBtnAccept {
+  margin-right: 15px;
+}
+.cookiesBtnDecline {
+  background-color: #fa3d37;
+  color: #fff;
+  &:hover {
+    background-color: #f07c78 !important;
+  }
+}
