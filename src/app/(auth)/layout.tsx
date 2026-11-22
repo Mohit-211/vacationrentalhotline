@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
 import heroHouse from "@public/assets/hero-house.png";
+import { KeepSessionLoaded } from "@/components/layout/KeepSessionLoaded";
 import { Logo } from "@/components/ui/Logo";
 
 const highlights = ["Calls answered 24/7", "Text to owner if a call received", "Email to owner / property manager"];
@@ -14,6 +15,8 @@ const highlights = ["Calls answered 24/7", "Text to owner if a call received", "
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-2">
+      {/* So the header's Sign Up and Login show at once on the way back. */}
+      <KeepSessionLoaded />
       {/* The brand panel stays in view while a long form scrolls. */}
       <aside className="relative hidden overflow-hidden bg-linear-to-br from-primary-stronger via-primary-strong to-secondary-strong text-on-strong lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:p-10 xl:p-14">
         <div aria-hidden="true" className="absolute -top-32 -right-24 size-96 rounded-full bg-primary/30 blur-3xl" />
