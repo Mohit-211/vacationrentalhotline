@@ -24,8 +24,9 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
   return (
     <footer className="border-t border-border bg-surface">
-      <Container className="grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.4fr]">
-        <div>
+      {/* Two columns even on phones: the link lists sit side by side. */}
+      <Container className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 lg:grid-cols-[1.4fr_1fr_1fr_1.4fr]">
+        <div className="col-span-2 lg:col-span-1">
           <Logo className="h-11" />
         </div>
         <div>
@@ -52,7 +53,7 @@ const Footer = () => {
             ))}
           </ul>
         </div>
-        <div>
+        <div className="col-span-2 lg:col-span-1">
           <h2 className="mb-4 text-sm font-bold tracking-wider uppercase">Contact Us</h2>
           <ul className="space-y-4 text-sm">
             <li className="flex gap-3">

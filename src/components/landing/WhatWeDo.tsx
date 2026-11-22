@@ -3,6 +3,7 @@ import { BellRing, FileText, MoonStar, PhoneCall, ShieldCheck } from "lucide-rea
 import servicesCollage from "@public/assets/services-collage.png";
 import { Container } from "@/components/ui/Container";
 import { Section, SectionHeading } from "@/components/ui/Section";
+import { revealOrder } from "@/lib/utils";
 
 const points = [
   {
@@ -29,14 +30,19 @@ const points = [
 
 const WhatWeDo = () => {
   return (
-    <Section>
-      <Container className="grid items-center gap-12 lg:grid-cols-[3fr_2fr]">
+    <Section className="bg-surface">
+      <Container className="grid gap-12 lg:grid-cols-[3fr_2fr] lg:gap-16">
         <div>
-          <SectionHeading title="What We Do" />
-          <ul className="mt-8 space-y-5">
-            {points.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex gap-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary-strong">
+          <SectionHeading eyebrow="How it works" title="What We Do" />
+          <ul className="mt-8 space-y-4">
+            {points.map(({ icon: Icon, text }, index) => (
+              <li
+                key={text}
+                data-reveal
+                style={revealOrder(index % 2)}
+                className="flex gap-4 rounded-2xl border border-border bg-canvas p-5 transition-colors duration-300 hover:border-primary/40"
+              >
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-strong to-secondary-strong text-on-strong shadow-sm">
                   <Icon className="size-5" aria-hidden="true" />
                 </span>
                 <p className="leading-relaxed text-muted-foreground">{text}</p>
@@ -44,12 +50,16 @@ const WhatWeDo = () => {
             ))}
           </ul>
         </div>
-        <Image
-          src={servicesCollage}
-          alt="Collage of vacation rental homes, a hand holding house keys, and a hotline representative wearing a headset"
-          sizes="(min-width: 1024px) 28rem, 90vw"
-          className="mx-auto w-full max-w-md"
-        />
+        {/* Stays in view beside the long list on wide screens. */}
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <Image
+            src={servicesCollage}
+            alt="Collage of vacation rental homes, a hand holding house keys, and a hotline representative wearing a headset"
+            sizes="(min-width: 1024px) 28rem, 80vw"
+            data-reveal
+            className="mx-auto w-full max-w-xs sm:max-w-sm lg:mt-20 lg:max-w-md"
+          />
+        </div>
       </Container>
     </Section>
   );

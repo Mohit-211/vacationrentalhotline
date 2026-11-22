@@ -61,63 +61,72 @@ const Contact = () => {
   };
 
   return (
-    <Section id="contact" className="bg-surface">
+    <Section id="contact">
       <Container>
-        <SectionHeading align="center" title="Contact Us" />
-        <div className="mt-12 grid items-center gap-12 lg:grid-cols-[3fr_2fr]">
-          <form
-            method="post"
-            noValidate
-            onSubmit={handleSubmit(onSubmit)}
-            className="grid gap-5 rounded-2xl border border-border bg-canvas p-6 shadow-sm sm:grid-cols-2 sm:p-8"
-          >
-            <FormField id="contact_name" label="Your Name" required error={errors.name?.message}>
-              <Input placeholder="Your Name" autoComplete="name" {...register("name")} />
-            </FormField>
-            <FormField id="contact_email" label="Email" required error={errors.email?.message}>
-              <Input type="email" placeholder="Your Email" autoComplete="email" {...register("email")} />
-            </FormField>
-            <Controller
-              control={control}
-              name="contact_number"
-              render={({ field }) => (
-                <FormField
-                  id="contact_number"
-                  label="Mobile Number"
-                  required
-                  error={errors.contact_number?.message}
-                  className="sm:col-span-2"
-                >
-                  <PhoneInput
-                    placeholder="Enter Mobile Number"
-                    defaultCountry="US"
-                    value={field.value}
-                    onChange={(value) => field.onChange(value ?? "")}
-                    onBlur={field.onBlur}
-                  />
-                </FormField>
-              )}
+        {/* A gradient panel, like the hero, with the agent standing at its foot. */}
+        <div
+          data-reveal
+          className="relative grid items-end gap-10 overflow-hidden rounded-[2.5rem] bg-linear-to-br from-primary-stronger via-primary-strong to-secondary-strong p-6 shadow-xl sm:p-10 lg:grid-cols-[3fr_2fr] lg:p-12 lg:pb-0"
+        >
+          <div className="lg:pb-12">
+            <SectionHeading
+              title={<span className="text-on-strong">Contact Us</span>}
+              description={<span className="text-on-strong">Questions about cover for your rental? Send us a message.</span>}
             />
-            <FormField
-              id="contact_requirements"
-              label="Message"
-              required
-              error={errors.requirements?.message}
-              className="sm:col-span-2"
+            <form
+              method="post"
+              noValidate
+              onSubmit={handleSubmit(onSubmit)}
+              className="mt-8 grid gap-5 rounded-3xl bg-surface p-6 shadow-lg sm:grid-cols-2 sm:p-8"
             >
-              <Textarea placeholder="Message" rows={4} {...register("requirements")} />
-            </FormField>
-            <div className="sm:col-span-2">
-              <Button type="submit" size="lg" loading={loading} className="w-full sm:w-auto">
-                Submit
-              </Button>
-            </div>
-          </form>
+              <FormField id="contact_name" label="Your Name" required error={errors.name?.message}>
+                <Input placeholder="Your Name" autoComplete="name" {...register("name")} />
+              </FormField>
+              <FormField id="contact_email" label="Email" required error={errors.email?.message}>
+                <Input type="email" placeholder="you@example.com" autoComplete="email" {...register("email")} />
+              </FormField>
+              <Controller
+                control={control}
+                name="contact_number"
+                render={({ field }) => (
+                  <FormField
+                    id="contact_number"
+                    label="Mobile Number"
+                    required
+                    error={errors.contact_number?.message}
+                    className="sm:col-span-2"
+                  >
+                    <PhoneInput
+                      placeholder="Enter Mobile Number"
+                      defaultCountry="US"
+                      value={field.value}
+                      onChange={(value) => field.onChange(value ?? "")}
+                      onBlur={field.onBlur}
+                    />
+                  </FormField>
+                )}
+              />
+              <FormField
+                id="contact_requirements"
+                label="Message"
+                required
+                error={errors.requirements?.message}
+                className="sm:col-span-2"
+              >
+                <Textarea placeholder="How can we help?" rows={4} {...register("requirements")} />
+              </FormField>
+              <div className="sm:col-span-2">
+                <Button type="submit" size="lg" loading={loading} className="w-full rounded-full px-8 sm:w-auto">
+                  Submit
+                </Button>
+              </div>
+            </form>
+          </div>
           <Image
             src={supportAgent}
-            alt="Contact Us"
+            alt="A smiling support agent wearing a headset"
             sizes="(min-width: 1024px) 26rem, 80vw"
-            className="mx-auto hidden w-full max-w-sm lg:block"
+            className="mx-auto hidden w-full max-w-sm drop-shadow-float lg:block"
           />
         </div>
       </Container>

@@ -7,6 +7,7 @@ import MultiProperty from "@/components/landing/MultiProperty";
 import About from "@/components/landing/About";
 import Contact from "@/components/landing/Contact";
 import CookieBanner from "@/components/layout/CookieBanner";
+import { ScrollReveal } from "@/components/ui/ScrollReveal";
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
       <About />
       <Contact />
       <CookieBanner />
+      <ScrollReveal />
     </>
   );
 }

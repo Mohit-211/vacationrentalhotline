@@ -25,7 +25,7 @@ const sections = [
 ];
 
 const navLinkClasses =
-  "rounded-md px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted hover:text-primary-strong";
+  "rounded-full px-3.5 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted hover:text-primary-strong";
 const sheetLinkClasses =
   "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-base font-semibold text-foreground transition-colors hover:bg-surface-muted [&_svg]:size-5 [&_svg]:text-muted-foreground";
 
@@ -57,8 +57,9 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
-      <Container className="flex h-16 items-center justify-between gap-4">
+    // A pill that floats over the page; the strip around it stays see-through.
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-4">
+      <Container className="flex h-16 items-center justify-between gap-4 rounded-full border border-border/80 bg-surface/90 shadow-lg backdrop-blur-md">
         <Link href="/" className="shrink-0 rounded-md">
           <Logo priority className="h-9 sm:h-10" />
         </Link>
@@ -82,7 +83,7 @@ const Header = () => {
           ) : signedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="ml-3">
+                <Button variant="outline" size="sm" className="ml-3 rounded-full">
                   <UserRound aria-hidden="true" />
                   My Account
                   <ChevronDown aria-hidden="true" />
@@ -110,10 +111,10 @@ const Header = () => {
             </DropdownMenu>
           ) : (
             <div className="ml-3 flex items-center gap-2">
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm" className="rounded-full px-4">
                 <Link href="/signup">Sign Up</Link>
               </Button>
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="rounded-full px-5">
                 <Link href="/login">Login</Link>
               </Button>
             </div>
@@ -123,7 +124,7 @@ const Header = () => {
         {/* Mobile: the same choices as on desktop */}
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
+            <Button variant="ghost" size="icon" className="-mr-1 rounded-full md:hidden" aria-label="Open menu">
               <Menu className="size-6" aria-hidden="true" />
             </Button>
           </SheetTrigger>
