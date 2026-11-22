@@ -4,6 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { admin } from "better-auth/plugins/admin";
 import type { z } from "zod";
+import { AUTH_COOKIE_PREFIX } from "@/lib/auth-cookie";
 import { personNameSchema, phoneNumberSchema } from "@/lib/schemas/common";
 import { passwordSchema } from "@/lib/schemas/password";
 import { db, schema } from "@/server/db";
@@ -17,9 +18,6 @@ import {
 } from "@/server/email/templates";
 import { sendEmailInBackground } from "@/server/email/send";
 import { serverEnv } from "@/server/env";
-
-/** The cookie prefix; the proxy needs it to spot the session cookie. */
-export const AUTH_COOKIE_PREFIX = "vrh";
 
 const DAY = 60 * 60 * 24;
 

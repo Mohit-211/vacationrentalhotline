@@ -14,11 +14,10 @@ const tones = {
 
 interface StatusMessageProps {
   subject: string;
-  text: string;
+  /** The message; may contain markup such as <strong>, as React elements. */
+  text: ReactNode;
   buttonText: string;
   onButtonClick?: () => void;
-  /** Render `text` as HTML (our own copy only). */
-  useHtmlText?: boolean;
   tone?: keyof typeof tones;
   /** Adds a "Go to Login" line under the button. */
   showLoginLink?: boolean;
@@ -31,7 +30,6 @@ const StatusMessage = ({
   text,
   buttonText,
   onButtonClick,
-  useHtmlText = true,
   tone = "info",
   showLoginLink = false,
 }: StatusMessageProps) => {
@@ -43,14 +41,9 @@ const StatusMessage = ({
           <Icon className="size-7" aria-hidden="true" />
         </div>
         <h1 className="mt-6 text-2xl font-bold">{subject}</h1>
-        {useHtmlText ? (
-          <p
-            className="mt-4 leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground"
-            dangerouslySetInnerHTML={{ __html: text }}
-          />
-        ) : (
-          <p className="mt-4 leading-relaxed text-muted-foreground">{text}</p>
-        )}
+        <p className="mt-4 leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">
+          {text}
+        </p>
         <Button size="lg" className="mt-8" onClick={onButtonClick}>
           {buttonText}
         </Button>

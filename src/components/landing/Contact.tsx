@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Section, SectionHeading } from "@/components/ui/Section";
 import { Textarea } from "@/components/ui/Textarea";
-import { submitContactForm } from "@/lib/api/contact";
+import { sendContactMessage } from "@/lib/api/contact";
 import { isEmail, isValidPhone } from "@/lib/validation";
 
 const schema = z.object({
@@ -42,13 +42,18 @@ const Contact = () => {
 
   const onSubmit = (values: ContactValues) => {
     setLoading(true);
-    submitContactForm(values)
+    sendContactMessage({
+      name: values.name,
+      email: values.email,
+      phone: values.contact_number,
+      message: values.requirements,
+    })
       .then(() => {
         toast.success("Your query has been submitted.");
         reset(emptyForm);
       })
-      .catch((e) => {
-        console.log(e, "Error");
+      .catch(() => {
+        // The API client has already shown the error.
       })
       .finally(() => {
         setLoading(false);
@@ -61,6 +66,7 @@ const Contact = () => {
         <SectionHeading align="center" title="Contact Us" />
         <div className="mt-12 grid items-center gap-12 lg:grid-cols-[3fr_2fr]">
           <form
+            method="post"
             noValidate
             onSubmit={handleSubmit(onSubmit)}
             className="grid gap-5 rounded-2xl border border-border bg-canvas p-6 shadow-sm sm:grid-cols-2 sm:p-8"

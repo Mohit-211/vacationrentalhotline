@@ -1,28 +1,17 @@
-import apiHelper from "./client";
-import type {
-  ApiResponse,
-  Id,
-  Property,
-  PropertyInput,
-  SubscriptionStatus,
-} from "./types";
+import apiClient from "./client";
+import type { ApiResponse, Property, PropertyInput, PropertyStatus, PropertyWithNotes } from "./types";
 
-export const createProperties = (formData: { properties: PropertyInput[] }) => {
-  return apiHelper.post<ApiResponse<unknown>>(`property/createProperty`, formData);
-};
+export const listProperties = (status?: PropertyStatus) =>
+  apiClient.get<ApiResponse<Property[]>>("/properties", { params: status ? { status } : undefined });
 
-export const getPropertiesByType = (formData: { type: SubscriptionStatus }) => {
-  return apiHelper.post<ApiResponse<Property[]>>(`property/getPropertyByType`, formData);
-};
+export const getProperty = (id: string) => apiClient.get<ApiResponse<PropertyWithNotes>>(`/properties/${id}`);
 
-export const getProperty = (id: Id) => {
-  return apiHelper.get<ApiResponse<Property>>(`property/getPropertyById/${id}`);
-};
+/** Adds 1 to 500 properties; all are saved, or none. */
+export const createProperties = (properties: PropertyInput[]) =>
+  apiClient.post<ApiResponse<Property[]>>("/properties", { properties });
 
-export const updateProperty = (id: Id, formdata: PropertyInput) => {
-  return apiHelper.put<ApiResponse<unknown>>(`property/updateProperty/${id}`, formdata);
-};
+export const updateProperty = (id: string, changes: Partial<PropertyInput>) =>
+  apiClient.patch<ApiResponse<Property>>(`/properties/${id}`, changes);
 
-export const deleteProperties = (formData: { property_ids: Id[] }) => {
-  return apiHelper.post<ApiResponse<unknown>>(`property/deleteProperty`, formData);
-};
+export const deleteProperties = (ids: string[]) =>
+  apiClient.delete<ApiResponse<{ deleted: number }>>("/properties", { data: { ids } });

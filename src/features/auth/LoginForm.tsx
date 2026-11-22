@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { login } from "@/lib/api/auth";
-import { setToken } from "@/lib/session";
+import { authClient, authErrorMessage } from "@/lib/auth-client";
 import { AuthCard, authLinkClasses } from "./AuthCard";
 
 const schema = z.object({
@@ -36,19 +35,15 @@ const LoginForm = () => {
 
   const onSubmit = async (values: LoginValues) => {
     setLoading(true);
-    try {
-      const response = await login(values);
-      toast.success(response?.data?.message);
-      if (response.status === 200) {
-        const token = response?.data?.data?.tokens?.access?.token;
-        setToken(token);
-        router.push("/dashboard");
-      }
-    } catch (e) {
-      console.error("Login failed:", e);
-    } finally {
-      setLoading(false);
+    // Better Auth sets the httpOnly session cookie on success.
+    const { error } = await authClient.signIn.email({ email: values.email.trim(), password: values.password });
+    setLoading(false);
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
     }
+    toast.success("Successfully Logged in.");
+    router.push("/dashboard");
   };
 
   return (
@@ -63,7 +58,7 @@ const LoginForm = () => {
         </>
       }
     >
-      <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
+      <form method="post" noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
         <FormField id="loginForm_email" label="Email" required error={errors.email?.message}>
           <Input placeholder="Enter Email Address" autoComplete="email" {...register("email")} />
         </FormField>

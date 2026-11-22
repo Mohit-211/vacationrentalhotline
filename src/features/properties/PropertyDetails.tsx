@@ -29,18 +29,22 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { deleteProperties, getProperty } from "@/lib/api/properties";
-import { addNote, deleteNote, getNote, updateNote } from "@/lib/api/notes";
-import type { Id, NoteInput, Property } from "@/lib/api/types";
+import { addNote, deleteNote, updateNote } from "@/lib/api/notes";
+import type { NoteInput, PropertyWithNotes } from "@/lib/api/types";
+import { findCountry, findRegion } from "@/lib/locations";
 import { useIsClient } from "@/lib/useIsClient";
 
-const noteSchema = z.object({ notes: z.string().min(1, "Please enter a note") });
+// The same rule as the API's (src/lib/schemas/note.ts).
+const noteSchema = z.object({
+  body: z.string().trim().min(1, "Please enter a note").max(5000, "A note can be at most 5,000 characters."),
+});
 
-const loadProperty = async (id: Id, setData: (property: Property) => void) => {
+const loadProperty = async (id: string, setData: (property: PropertyWithNotes) => void) => {
   try {
     const res = await getProperty(id);
     setData(res.data.data);
-  } catch (e) {
-    console.error(e);
+  } catch {
+    // The API client has already shown the error.
   }
 };
 
@@ -57,17 +61,17 @@ const PropertyDetails = () => {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const isClient = useIsClient();
-  const [data, setData] = useState<Partial<Property>>({});
+  const [data, setData] = useState<PropertyWithNotes>();
   const [loaded, setLoaded] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<Id | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     reset,
     setValue,
     formState: { errors },
-  } = useForm<NoteInput>({ resolver: zodResolver(noteSchema), mode: "onChange", defaultValues: { notes: "" } });
+  } = useForm<NoteInput>({ resolver: zodResolver(noteSchema), mode: "onChange", defaultValues: { body: "" } });
 
   useEffect(() => {
     if (id) {
@@ -76,99 +80,90 @@ const PropertyDetails = () => {
   }, [id]);
 
   const toggleNoteDialog = useCallback(
-    (visible = false, noteId: Id | null = null) => {
+    (visible = false, noteId: string | null = null) => {
       setNoteDialogOpen(visible);
       setEditingNoteId(noteId);
-      if (!visible) reset({ notes: "" });
+      if (!visible) reset({ body: "" });
     },
     [reset]
   );
 
   const saveNote = async (values: NoteInput) => {
     try {
-      const apiCall = isClient && editingNoteId ? updateNote(editingNoteId, values) : addNote(id, values);
-      const res = await apiCall;
-      toast.success(res.data.message);
+      if (editingNoteId) {
+        await updateNote(id, editingNoteId, values.body);
+        toast.success("Note updated.");
+      } else {
+        await addNote(id, values.body);
+        toast.success("Your note has been added to the property.");
+      }
       toggleNoteDialog(false);
       loadProperty(id, setData);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // The API client has already shown the error.
     }
   };
-  const submitNoteForm = handleSubmit(saveNote, (e) => console.error(e));
+  const submitNoteForm = handleSubmit(saveNote);
 
-  const handleEditNote = async (noteId: Id) => {
-    try {
-      const res = await getNote(noteId);
-      setValue("notes", res.data.data.notes);
-      toggleNoteDialog(true, noteId);
-    } catch (e) {
-      console.error(e);
-    }
+  const handleEditNote = (noteId: string) => {
+    const note = data?.notes.find((item) => item.id === noteId);
+    if (!note) return;
+    setValue("body", note.body);
+    toggleNoteDialog(true, noteId);
   };
 
-  const handleDeleteNote = async (noteId: Id) => {
+  const handleDeleteNote = async (noteId: string) => {
     try {
-      await deleteNote(noteId);
+      await deleteNote(id, noteId);
       toast.success("Note deleted successfully");
       loadProperty(id, setData);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // The API client has already shown the error.
     }
   };
 
   const handleEditProperty = () => router.push(`/properties/${id}/edit`);
   const handleDeleteProperty = () => {
-    const formData = {
-      property_ids: [id],
-    };
-    deleteProperties(formData)
-      .then((res) => {
-        toast.success(res?.data?.message);
+    deleteProperties([id])
+      .then(() => {
+        toast.success("Property deleted.");
         router.push("/dashboard");
       })
-      .catch((e) => {
-        console.log(e, "error");
+      .catch(() => {
+        // The API client has already shown the error.
       });
   };
 
   const value = (v: unknown) => (v === undefined || v === null ? "---" : String(v));
-  const status =
-    data?.subscription_status === "ACTIVATE" ? (
-      <Badge variant="success">Active</Badge>
-    ) : data?.subscription_status === "DEACTIVATE" ? (
-      <Badge variant="warning">Inactive</Badge>
-    ) : (
-      "---"
-    );
+  const status = !data ? (
+    "---"
+  ) : data.status === "active" ? (
+    <Badge variant="success">Active</Badge>
+  ) : (
+    <Badge variant="warning">Inactive</Badge>
+  );
+  const country = findCountry(data?.countryCode);
 
   const propertyRows: [string, ReactNode][] = [
-    ["Property Owner Name", value(data?.property_owner_name)],
-    ["Address line 1", value(data?.address_line_1)],
-    ["Address line 2", value(data?.address_line_2)],
+    ["Property Owner Name", value(data?.ownerName)],
+    ["Address line 1", value(data?.addressLine1)],
+    ["Address line 2", value(data?.addressLine2)],
     ["Status", status],
-    ["Email 1", value(data?.property_owner_email_1)],
-    ["Email 2", value(data?.property_owner_email_2)],
-    ["Phone Number 1", value(data?.property_owner_mobile_number_1)],
-    ["Phone Number 2", value(data?.property_owner_mobile_number_2)],
-    ["Country", value(data?.country)],
-    ["State", value(data?.state)],
+    ["Email 1", value(data?.ownerEmail)],
+    ["Email 2", value(data?.ownerAltEmail)],
+    ["Phone Number 1", value(data?.ownerPhone)],
+    ["Phone Number 2", value(data?.ownerAltPhone)],
+    ["Country", value(country?.name ?? data?.countryCode)],
+    [country?.regionLabel ?? "State", value(findRegion(data?.countryCode, data?.regionCode)?.name ?? data?.regionCode)],
     ["City", value(data?.city)],
-    ["Zip Code", value(data?.zip_code)],
+    [country?.postalCodeLabel ?? "Zip Code", value(data?.postalCode)],
   ];
   const subscriptionRows: [string, ReactNode][] = [
-    [
-      "Subscription Purchased",
-      data?.subscription_status
-        ? data.subscription_status === "DEACTIVATE"
-          ? "Inactive Properties"
-          : "Active Properties"
-        : "---",
-    ],
-    ["Expiry Date", data?.subscription_end_date?.split("T")[0] ?? "---"],
-    ["Validity", value(data?.validity)],
+    ["Subscription Purchased", data ? (data.status === "active" ? "Active Properties" : "Inactive Properties") : "---"],
+    ["Expiry Date", data?.subscriptionEndsAt?.split("T")[0] ?? "---"],
+    ["Validity", "1 year"],
   ];
-  const notes = (data?.property_notes ?? []).filter((item) => item?.notes);
+  const notes = data?.notes ?? [];
 
   const skeletonGrid = (count: number) => (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -210,7 +205,7 @@ const PropertyDetails = () => {
                   <Pencil aria-hidden="true" />
                   Edit
                 </DropdownMenuItem>
-                {data?.payment_status !== "SUCCESS" && (
+                {data?.status !== "active" && (
                   <DropdownMenuItem variant="danger" onSelect={handleDeleteProperty}>
                     <Trash2 aria-hidden="true" />
                     Delete
@@ -256,12 +251,12 @@ const PropertyDetails = () => {
         <h2 className="mb-4 text-lg font-bold">Notes</h2>
         {isClient && loaded && notes.length > 0 ? (
           <ul className="grid gap-3">
-            {notes.map((item, index) => (
+            {notes.map((item) => (
               <li
-                key={index}
+                key={item.id}
                 className="flex items-start justify-between gap-4 rounded-xl border border-border bg-canvas p-4"
               >
-                <p className="leading-relaxed whitespace-pre-wrap">{item.notes}</p>
+                <p className="leading-relaxed whitespace-pre-wrap">{item.body}</p>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon-sm" aria-label="Note actions" className="shrink-0">
@@ -299,9 +294,9 @@ const PropertyDetails = () => {
           <DialogHeader>
             <DialogTitle>{isClient && editingNoteId ? "Edit Note" : "Add a Note"}</DialogTitle>
           </DialogHeader>
-          <form id="note-form" noValidate onSubmit={submitNoteForm}>
-            <FormField id="note_notes" error={errors.notes?.message}>
-              <Textarea rows={4} placeholder="Enter your note here" aria-label="Note" {...register("notes")} />
+          <form id="note-form" method="post" noValidate onSubmit={submitNoteForm}>
+            <FormField id="note_body" error={errors.body?.message}>
+              <Textarea rows={4} placeholder="Enter your note here" aria-label="Note" {...register("body")} />
             </FormField>
           </form>
           <DialogFooter>

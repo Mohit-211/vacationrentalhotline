@@ -1,3 +1,4 @@
+// Still the old API's endpoints and shapes; backend phase 2 replaces them.
 import apiHelper from "./client";
 import type {
   ApiResponse,

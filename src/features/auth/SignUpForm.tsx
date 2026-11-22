@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { FormField } from "@/components/ui/FormField";
@@ -12,7 +13,8 @@ import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import StatusMessage from "@/components/ui/StatusMessage";
-import { register as registerUser } from "@/lib/api/auth";
+import { authClient, authErrorMessage } from "@/lib/auth-client";
+import { PASSWORD_HINT, passwordSchema } from "@/lib/schemas/password";
 import { isEmail, isValidPhone } from "@/lib/validation";
 import { AuthCard, authLinkClasses } from "./AuthCard";
 
@@ -21,11 +23,7 @@ const schema = z
     name: z.string().min(1, "Please input your name!"),
     email: z.string().min(1, "Please input your email!").refine(isEmail, "Please input your email!"),
     mobile: z.string().min(1, "Please input your mobile!").refine(isValidPhone, "Invalid phone number."),
-    password: z
-      .string()
-      .min(1, "Please input your password!")
-      .min(8, "Password must be at least 8 characters long!")
-      .regex(/^(?=\D*\d)(?=[^ ]+$).{8,}$/, "Password must have at least 2 digits and no blank space!"),
+    password: z.string().min(1, "Please input your password!").pipe(passwordSchema),
     confirm_password: z.string().min(1, "Please confirm your password!"),
     terms: z.boolean().refine((accepted) => accepted, "Should accept terms and conditions"),
   })
@@ -59,27 +57,36 @@ const SignUpForm = () => {
 
   const handleSignUp = async (values: SignUpValues) => {
     setLoading(true);
-    try {
-      await registerUser(values);
-      reset(emptyForm);
-      setSubmittedEmail(values?.email);
-      setVerificationSent(true);
-    } catch (e) {
-      console.log(e);
-    } finally {
-      setLoading(false);
+    // Better Auth emails the verification link; no session until it's used.
+    const { error } = await authClient.signUp.email({
+      name: values.name.trim(),
+      email: values.email.trim(),
+      password: values.password,
+      phone: values.mobile,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
     }
+    reset(emptyForm);
+    setSubmittedEmail(values.email.trim());
+    setVerificationSent(true);
   };
 
   if (verificationSent) {
-    const emailText = `We've sent a verification link to the email address you provided: <strong>${submittedEmail}</strong>. Please click the link in the email to verify your email address and complete the sign-up process. If the email address above is incorrect, please Sign Up Again to create a new account with the correct email.`;
     return (
       <StatusMessage
         subject="Almost there! Verify Your Email"
-        text={emailText}
+        text={
+          <>
+            We&apos;ve sent a verification link to the email address you provided: <strong>{submittedEmail}</strong>.
+            Please click the link in the email to verify your email address and complete the sign-up process. If the
+            email address above is incorrect, please Sign Up Again to create a new account with the correct email.
+          </>
+        }
         buttonText="Create New Account"
         onButtonClick={() => setVerificationSent(false)}
-        useHtmlText
         showLoginLink
       />
     );
@@ -97,7 +104,7 @@ const SignUpForm = () => {
         </>
       }
     >
-      <form noValidate onSubmit={handleSubmit(handleSignUp)} className="grid gap-5">
+      <form method="post" noValidate onSubmit={handleSubmit(handleSignUp)} className="grid gap-5">
         <FormField id="signup_name" label="Name" required error={errors.name?.message}>
           <Input placeholder="Enter Name" autoComplete="name" {...register("name")} />
         </FormField>
@@ -120,7 +127,7 @@ const SignUpForm = () => {
             </FormField>
           )}
         />
-        <FormField id="signup_password" label="Password" required error={errors.password?.message}>
+        <FormField id="signup_password" label="Password" required hint={PASSWORD_HINT} error={errors.password?.message}>
           <PasswordInput
             placeholder="*****"
             autoComplete="new-password"

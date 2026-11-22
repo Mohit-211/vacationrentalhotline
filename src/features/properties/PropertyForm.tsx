@@ -2,10 +2,20 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { Controller, useFieldArray, useForm, type Control, type FieldPath, type Resolver } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import {
+  Controller,
+  useFieldArray,
+  useForm,
+  useWatch,
+  type Control,
+  type FieldPath,
+  type Resolver,
+  type UseFormReturn,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -14,99 +24,55 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { PageLoader, Spinner } from "@/components/ui/Spinner";
+import { PageLoader } from "@/components/ui/Spinner";
 import { Switch } from "@/components/ui/Switch";
 import CsvImport from "@/features/properties/csv-import/CsvImport";
-import { getCities, getCountries, getStates } from "@/lib/api/locations";
 import { createProperties, updateProperty } from "@/lib/api/properties";
-import type { City, Country, Property, PropertyInput, State } from "@/lib/api/types";
+import type { ApiErrorBody, Property, PropertyInput } from "@/lib/api/types";
+import { COUNTRIES, findCountry } from "@/lib/locations";
+import { propertyInputSchema } from "@/lib/schemas/property";
 import { useIsClient } from "@/lib/useIsClient";
-import { isEmail, isValidPhone } from "@/lib/validation";
 
-const US = 233;
-const CANADA = 39;
-
-/** The fields one property block registers; nothing else is sent. */
-const PROPERTY_FIELDS = [
-  "address_line_1",
-  "address_line_2",
-  "country",
-  "state",
-  "city",
-  "property_owner_name",
-  "zip_code",
-  "property_owner_email_1",
-  "property_owner_email_2",
-  "property_owner_mobile_number_1",
-  "property_owner_mobile_number_2",
-] as const;
-type PropertyField = (typeof PROPERTY_FIELDS)[number];
-
-type PropertyFields = { [K in PropertyField]?: string | number | null };
+/** One property block: every field is a string in the form, "" when empty. */
+type PropertyRow = Required<{ [K in keyof PropertyInput]: string }>;
 interface PropertyFormValues {
-  properties: PropertyFields[];
+  properties: PropertyRow[];
 }
 type FieldName = FieldPath<PropertyFormValues>;
 
-// Fields the user never touched stay undefined, so they're left out of the
-// request exactly as the old form left them out.
-const pickFields = (property: PropertyFields): PropertyInput => {
-  const picked: Record<string, unknown> = {};
-  for (const key of PROPERTY_FIELDS) picked[key] = property[key];
-  return picked as PropertyInput;
+const emptyRow: PropertyRow = {
+  ownerName: "",
+  ownerEmail: "",
+  ownerAltEmail: "",
+  ownerPhone: "",
+  ownerAltPhone: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  countryCode: "",
+  regionCode: "",
+  postalCode: "",
 };
 
-const filled = (value: unknown) => value !== undefined && value !== null && value !== "";
+const toRow = (property: Property): PropertyRow => ({
+  ownerName: property.ownerName,
+  ownerEmail: property.ownerEmail,
+  ownerAltEmail: property.ownerAltEmail ?? "",
+  ownerPhone: property.ownerPhone,
+  ownerAltPhone: property.ownerAltPhone ?? "",
+  addressLine1: property.addressLine1,
+  addressLine2: property.addressLine2 ?? "",
+  city: property.city,
+  countryCode: property.countryCode,
+  regionCode: property.regionCode,
+  postalCode: property.postalCode,
+});
 
-/** A rule: return true when the value passes, or the error message. */
-type Rule = (value: unknown) => true | string;
-const rules = (...checks: Rule[]) =>
-  z.unknown().superRefine((value, ctx) => {
-    for (const check of checks) {
-      const result = check(value);
-      if (result !== true) {
-        ctx.addIssue({ code: "custom", message: result });
-        return;
-      }
-    }
-  });
-const required = (message: string): Rule => (value) => filled(value) || message;
-const maxLength = (max: number, message: string): Rule => (value) =>
-  !filled(value) || String(value).length <= max || message;
-const email: Rule = (value) => !filled(value) || isEmail(String(value)) || "Please enter a valid Email!";
-const phone: Rule = (value) => !filled(value) || isValidPhone(String(value)) || "Invalid phone number.";
+// The API's own rules (src/lib/schemas/property.ts), so the form and the
+// server agree on every message.
+const formSchema = z.object({ properties: z.array(propertyInputSchema) });
 
-/** The rules the old form applied; ZIP rules follow the selected country. */
-function buildSchema(selectedCountry: number | null) {
-  const zipCode: Rule = (value) => {
-    if (!filled(value)) return true;
-    if (selectedCountry === US && !/^\d{5}$/.test(String(value))) return "US Zip Code must be exactly 5 digits.";
-    if (selectedCountry === CANADA && !/^[A-Za-z0-9]{6}$/.test(String(value)))
-      return "Canadian Postal Code must be exactly 6 characters.";
-    return true;
-  };
-  const property = z.object({
-    address_line_1: rules(
-      required("Please input your Rental Property Address Line 1!"),
-      maxLength(100, "Address Line 1 cannot exceed 100 characters.")
-    ),
-    address_line_2: rules(maxLength(100, "Address Line 2 cannot exceed 100 characters.")),
-    country: rules(required("Please select your Country!")),
-    state: rules(required("Please select your State!")),
-    city: rules(required("Please select your City!")),
-    property_owner_name: rules(
-      required("Please input your Rental Property Owner Name!"),
-      maxLength(50, "Rental Property Owner Name cannot exceed 50 characters.")
-    ),
-    zip_code: rules(required(`Please input your ${selectedCountry === US ? "Zip" : "Postal"} Code!`), zipCode),
-    property_owner_email_1: rules(required("Please input your Email 1!"), email),
-    property_owner_email_2: rules(email),
-    property_owner_mobile_number_1: rules(required("Phone number is required."), phone),
-    property_owner_mobile_number_2: rules(phone),
-  });
-  return z.object({ properties: z.array(property) });
-}
-
+const countryOptions = COUNTRIES.map((country) => ({ value: country.code, label: country.name }));
 const fieldId = (name: string) => name.replaceAll(".", "_");
 
 interface FieldProps {
@@ -116,7 +82,7 @@ interface FieldProps {
   required?: boolean;
 }
 
-function TextField({ control, name, label, required, placeholder, maxLength }: FieldProps & { placeholder?: string; maxLength?: number }) {
+function TextField({ control, name, label, required, placeholder, maxLength, autoComplete }: FieldProps & { placeholder?: string; maxLength?: number; autoComplete?: string }) {
   return (
     <Controller
       control={control}
@@ -126,11 +92,12 @@ function TextField({ control, name, label, required, placeholder, maxLength }: F
           <Input
             ref={field.ref}
             name={field.name}
-            value={(field.value as string | number | null | undefined) ?? ""}
+            value={(field.value as string) ?? ""}
             onChange={(e) => field.onChange(e.target.value)}
             onBlur={field.onBlur}
             placeholder={placeholder}
             maxLength={maxLength}
+            autoComplete={autoComplete}
           />
         </FormField>
       )}
@@ -150,8 +117,8 @@ function PhoneField({ control, name, label, required }: FieldProps) {
             placeholder="Enter phone number"
             international
             countries={["US", "CA"]}
-            value={(field.value as string | null | undefined) ?? undefined}
-            onChange={(value) => field.onChange(value)}
+            value={(field.value as string) || undefined}
+            onChange={(value) => field.onChange(value ?? "")}
             onBlur={field.onBlur}
           />
         </FormField>
@@ -170,9 +137,9 @@ function SelectField({
   onSelect,
 }: FieldProps & {
   placeholder: string;
-  options: { id: number; name: string }[];
+  options: { value: string; label: string }[];
   disabled?: boolean;
-  onSelect: (value: number) => void;
+  onSelect?: (value: string) => void;
 }) {
   return (
     <Controller
@@ -183,12 +150,12 @@ function SelectField({
           <Combobox
             placeholder={placeholder}
             searchPlaceholder={`Search ${label.toLowerCase()}`}
-            options={options.map((option) => ({ value: option.id, label: option.name }))}
-            value={field.value as string | number | null | undefined}
+            options={options}
+            value={(field.value as string) || null}
             disabled={disabled}
             onChange={(value) => {
-              field.onChange(value);
-              onSelect(value as number);
+              field.onChange(String(value));
+              onSelect?.(String(value));
             }}
           />
         </FormField>
@@ -197,226 +164,193 @@ function SelectField({
   );
 }
 
-const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
+/** One property's fields. Each block has its own country, so its own states and labels. */
+function PropertyBlock({
+  form,
+  index,
+  canRemove,
+  onRemove,
+}: {
+  form: UseFormReturn<PropertyFormValues>;
+  index: number;
+  canRemove: boolean;
+  onRemove: () => void;
+}) {
+  const { control, setValue, getValues, trigger } = form;
+  const name = (field: keyof PropertyRow) => `properties.${index}.${field}` as FieldName;
+  const countryCode = useWatch({ control, name: `properties.${index}.countryCode` });
+  const country = findCountry(countryCode);
+  const regionLabel = country?.regionLabel ?? "State";
+  const postalLabel = country?.postalCodeLabel ?? "Zip Code";
+
+  const handleCountryChange = () => {
+    // A state from the other country no longer applies, and the postal code
+    // is checked against the new country's format.
+    setValue(`properties.${index}.regionCode`, "");
+    if (getValues(`properties.${index}.postalCode`)) void trigger(`properties.${index}.postalCode`);
+  };
+
+  return (
+    <section
+      aria-label={`Property ${index + 1}`}
+      className="rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-6"
+    >
+      <div className="mb-5 flex min-h-9 items-center justify-between gap-3">
+        <h2 className="text-lg font-bold">Property {index + 1}</h2>
+        {canRemove && (
+          <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={onRemove}>
+            <Trash2 aria-hidden="true" />
+            Remove Property
+          </Button>
+        )}
+      </div>
+      <div className="grid gap-5 md:grid-cols-2">
+        <TextField
+          control={control}
+          name={name("addressLine1")}
+          label="Rental Property Address Line 1"
+          required
+          placeholder="21 Street Park villa"
+          maxLength={100}
+          autoComplete="off"
+        />
+        <TextField
+          control={control}
+          name={name("addressLine2")}
+          label="Rental Property Address Line 2"
+          placeholder="Avenue Part"
+          maxLength={100}
+          autoComplete="off"
+        />
+        <div className="grid gap-5 md:col-span-2 md:grid-cols-3">
+          <SelectField
+            control={control}
+            name={name("countryCode")}
+            label="Country"
+            placeholder="Select Country"
+            options={countryOptions}
+            onSelect={handleCountryChange}
+          />
+          <SelectField
+            control={control}
+            name={name("regionCode")}
+            label={regionLabel}
+            placeholder={`Select ${regionLabel}`}
+            options={(country?.regions ?? []).map((region) => ({ value: region.code, label: region.name }))}
+            disabled={!country}
+          />
+          <TextField control={control} name={name("city")} label="City" required placeholder="Enter City" maxLength={100} />
+        </div>
+        <TextField
+          control={control}
+          name={name("ownerName")}
+          label="Rental Property Owner Name"
+          required
+          placeholder="John Harper"
+          maxLength={50}
+        />
+        <TextField
+          control={control}
+          name={name("postalCode")}
+          label={postalLabel}
+          required
+          placeholder={country?.postalCodeExample ?? "12345"}
+          maxLength={10}
+        />
+        <TextField control={control} name={name("ownerEmail")} label="Email 1" required placeholder="johnharper@gmail.com" />
+        <TextField control={control} name={name("ownerAltEmail")} label="Email 2" placeholder="harper@gmail.com" />
+        <PhoneField control={control} name={name("ownerPhone")} label="Phone Number 1" required />
+        <PhoneField control={control} name={name("ownerAltPhone")} label="Phone Number 2" />
+      </div>
+    </section>
+  );
+}
+
+/** Adds properties, or edits one (`propertyData`). */
+const PropertyForm = ({ propertyData }: { propertyData?: Property }) => {
   const router = useRouter();
-  const { id } = useParams();
   const isClient = useIsClient();
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [states, setStates] = useState<State[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [selectedCountry, setSelectedCountry] = useState<number | null>(null);
-  const [selectedState, setSelectedState] = useState<number | null>(null);
-  const [selectedCity, setSelectedCity] = useState<number | null>(null);
+  const isEditing = Boolean(propertyData);
   const [isCsvMode, setIsCsvMode] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset, getValues } = useForm<PropertyFormValues>({
-    // Rebuilt each render, since ZIP rules depend on the selected country.
-    // `raw` hands the form's own values to onSubmit, untouched by the schema.
-    resolver: zodResolver(buildSchema(selectedCountry), undefined, { raw: true }) as Resolver<PropertyFormValues>,
+  const form = useForm<PropertyFormValues>({
+    // `raw` hands the form's own values to onSubmit; the API trims and normalises them.
+    resolver: zodResolver(formSchema, undefined, { raw: true }) as Resolver<PropertyFormValues>,
     mode: "onChange",
-    defaultValues: { properties: [propertyData ? { ...propertyData } : {}] },
+    defaultValues: { properties: [propertyData ? toRow(propertyData) : emptyRow] },
   });
+  const { control, handleSubmit, reset, setError } = form;
   const { fields, append, remove } = useFieldArray({ control, name: "properties" });
 
-  const addProperty = () => {
-    append({});
-  };
-
-  const removeProperty = (indexToRemove: number) => {
-    if (fields.length > 1) {
-      remove(indexToRemove);
-    } else {
-      toast.warning("At least one property is required");
-    }
-  };
-
-  const onSubmit = (values: PropertyFormValues) => {
-    const allValues = { properties: getValues("properties").map(pickFields) };
-    allValues.properties.forEach((property) => {
-      property.country = countries.find((c) => c.id === selectedCountry)?.name;
-      property.state = states.find((s) => s.id === selectedState)?.name;
-      property.city = cities.find((c) => c.id === selectedCity)?.name;
-    });
-    setSaving(true);
-    const apiCall = propertyData
-      ? updateProperty(propertyData.id, pickFields(values.properties[0]))
-      : createProperties(allValues);
-    apiCall
-      .then((res) => {
-        toast.success(res?.data?.message);
-        reset({ properties: [{}] });
-        router.push("/dashboard");
-      })
-      .catch((e) => {
-        console.log(e);
-      })
-      .finally(() => {
-        setSaving(false);
-      });
-  };
-
-  const onInvalid = (errorInfo: unknown) => {
-    console.log("Failed:", errorInfo);
-  };
-
   useEffect(() => {
-    if (propertyData) {
-      reset({ properties: [{ ...propertyData }] });
-    }
+    if (propertyData) reset({ properties: [toRow(propertyData)] });
   }, [propertyData, reset]);
 
-  useEffect(() => {
-    getCountries()
-      .then((res) => {
-        const allCountries = res?.data?.data || [];
-        const filteredCountries = allCountries.filter(
-          (country) => country.name === "United States" || country.name === "Canada"
-        );
-        setCountries(filteredCountries);
-      })
-      .catch((e) => {
-        console.log(e, "error");
-      });
-  }, []);
-
-  // As before, picking a country or state reloads the next list but does not
-  // clear the State/City already chosen (in the audit, for the bug step).
-  const handleCountryChange = (value: number) => {
-    setSelectedCountry(value);
-    getStates(value)
-      .then((res) => {
-        setStates(res?.data?.data[0]?.all_state || []);
-        setCities([]);
-        setSelectedState(null);
-        setSelectedCity(null);
-      })
-      .catch((e) => {
-        console.log(e, "error");
-      });
+  const removeProperty = (index: number) => {
+    if (fields.length > 1) remove(index);
+    else toast.warning("At least one property is required");
   };
 
-  const handleStateChange = (value: number) => {
-    setSelectedState(value);
-    getCities(value)
-      .then((res) => {
-        setCities(res?.data?.data || []);
-        setSelectedCity(null);
-      })
-      .catch((e) => {
-        console.log(e, "error");
-      });
+  const onSubmit = async (values: PropertyFormValues) => {
+    setSaving(true);
+    try {
+      if (propertyData) {
+        await updateProperty(propertyData.id, values.properties[0]);
+        toast.success("Property Updated Successfully");
+      } else {
+        await createProperties(values.properties);
+        toast.success(
+          values.properties.length === 1
+            ? "Property Created Successfully."
+            : `${values.properties.length} properties created successfully.`,
+        );
+      }
+      router.push("/dashboard");
+    } catch (error) {
+      // Show the API's field errors on the fields (an edit's paths have no "properties.0.").
+      const fieldErrors = isAxiosError<ApiErrorBody>(error) ? error.response?.data?.error?.fields : undefined;
+      for (const [path, messages] of Object.entries(fieldErrors ?? {})) {
+        const field = (propertyData ? `properties.0.${path}` : path) as FieldName;
+        setError(field, { type: "server", message: messages[0] });
+      }
+      setSaving(false);
+    }
   };
 
   if (!isClient) {
     return <PageLoader />;
   }
 
-  const block = (index: number): ReactNode => {
-    const name = (field: PropertyField) => `properties.${index}.${field}` as FieldName;
-    return (
-      <section
-        key={fields[index].id}
-        aria-label={`Property ${index + 1}`}
-        className="rounded-2xl border border-border bg-surface p-5 shadow-sm sm:p-6"
-      >
-        <div className="mb-5 flex min-h-9 items-center justify-between gap-3">
-          <h2 className="text-lg font-bold">Property {index + 1}</h2>
-          {fields.length > 1 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-danger hover:bg-danger-soft"
-              onClick={() => removeProperty(index)}
-            >
-              <Trash2 aria-hidden="true" />
-              Remove Property
-            </Button>
-          )}
-        </div>
-        <div className="grid gap-5 md:grid-cols-2">
-          <TextField
-            control={control}
-            name={name("address_line_1")}
-            label="Rental Property Address Line 1"
-            required
-            placeholder="21 Street Park villa"
-            maxLength={100}
+  let content: ReactNode;
+  if (!isEditing && isCsvMode) {
+    content = <CsvImport />;
+  } else {
+    content = (
+      <form id="property-form" method="post" noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {fields.map((field, index) => (
+          <PropertyBlock
+            key={field.id}
+            form={form}
+            index={index}
+            canRemove={fields.length > 1}
+            onRemove={() => removeProperty(index)}
           />
-          <TextField
-            control={control}
-            name={name("address_line_2")}
-            label="Rental Property Address Line 2"
-            placeholder="Avenue Part"
-            maxLength={100}
-          />
-          <div className="grid gap-5 md:col-span-2 md:grid-cols-3">
-            <SelectField
-              control={control}
-              name={name("country")}
-              label="Country"
-              placeholder="Select Country"
-              options={countries}
-              onSelect={handleCountryChange}
-            />
-            <SelectField
-              control={control}
-              name={name("state")}
-              label="State"
-              placeholder="Select State"
-              options={states}
-              disabled={!selectedCountry}
-              onSelect={handleStateChange}
-            />
-            <SelectField
-              control={control}
-              name={name("city")}
-              label="City"
-              placeholder="Select City"
-              options={cities}
-              disabled={!selectedState}
-              onSelect={(value) => setSelectedCity(value)}
-            />
-          </div>
-          <TextField
-            control={control}
-            name={name("property_owner_name")}
-            label="Rental Property Owner Name"
-            required
-            placeholder="John Harper"
-            maxLength={50}
-          />
-          <TextField
-            control={control}
-            name={name("zip_code")}
-            label={selectedCountry === US ? "Zip Code" : "Postal Code"}
-            required
-            placeholder={selectedCountry === US ? "12345" : "A1A1A1"}
-          />
-          <TextField
-            control={control}
-            name={name("property_owner_email_1")}
-            label="Email 1"
-            required
-            placeholder="johnharper@gmail.com"
-          />
-          <TextField
-            control={control}
-            name={name("property_owner_email_2")}
-            label="Email 2"
-            placeholder="harper@gmail.com"
-          />
-          <PhoneField control={control} name={name("property_owner_mobile_number_1")} label="Phone Number 1" required />
-          <PhoneField control={control} name={name("property_owner_mobile_number_2")} label="Phone Number 2" />
-        </div>
-      </section>
+        ))}
+        {!isEditing && (
+          <Button type="button" variant="outline" onClick={() => append(emptyRow)}>
+            <Plus aria-hidden="true" />
+            Add More Property
+          </Button>
+        )}
+      </form>
     );
-  };
+  }
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title={id ? "Update Property" : "Add New Property"}
+        title={isEditing ? "Update Property" : "Add New Property"}
         back={
           <Button asChild variant="ghost" size="icon" aria-label="Back to dashboard" className="mt-0.5 -ml-2">
             <Link href="/dashboard">
@@ -426,37 +360,21 @@ const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
         }
         actions={
           <>
-            <label className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium">
-              Switch to CSV Upload
-              <Switch checked={isCsvMode} onCheckedChange={(checked) => setIsCsvMode(checked)} />
-            </label>
-            {!isCsvMode && (
-              <Button type="submit" form="property-form">
+            {!isEditing && (
+              <label className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium">
+                Switch to CSV Upload
+                <Switch checked={isCsvMode} onCheckedChange={(checked) => setIsCsvMode(checked)} />
+              </label>
+            )}
+            {(isEditing || !isCsvMode) && (
+              <Button type="submit" form="property-form" loading={saving}>
                 Save Details
-                {saving && <Spinner label="Saving" />}
               </Button>
             )}
           </>
         }
       />
-      {!id && isCsvMode && <CsvImport />}
-      {!isCsvMode && (
-        <form
-          id="property-form"
-          noValidate
-          autoComplete="off"
-          onSubmit={handleSubmit(onSubmit, onInvalid)}
-          className="space-y-6"
-        >
-          {fields.map((_, index) => block(index))}
-          {!propertyData && (
-            <Button type="button" variant="outline" onClick={addProperty}>
-              <Plus aria-hidden="true" />
-              Add More Property
-            </Button>
-          )}
-        </form>
-      )}
+      {content}
     </div>
   );
 };

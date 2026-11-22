@@ -1,18 +1,11 @@
-import apiHelper from "./client";
-import type { ApiResponse, Id, NoteInput, PropertyNote } from "./types";
+import apiClient from "./client";
+import type { ApiResponse, Note } from "./types";
 
-export const addNote = (id: Id, formdata: NoteInput) => {
-  return apiHelper.post<ApiResponse<unknown>>(`notes/createNote/${id}`, formdata);
-};
+export const addNote = (propertyId: string, body: string) =>
+  apiClient.post<ApiResponse<Note>>(`/properties/${propertyId}/notes`, { body });
 
-export const getNote = (id: Id) => {
-  return apiHelper.get<ApiResponse<PropertyNote>>(`notes/findNoteById/${id}`);
-};
+export const updateNote = (propertyId: string, noteId: string, body: string) =>
+  apiClient.patch<ApiResponse<Note>>(`/properties/${propertyId}/notes/${noteId}`, { body });
 
-export const updateNote = (id: Id, formdata: NoteInput) => {
-  return apiHelper.put<ApiResponse<unknown>>(`notes/updateNote/${id}`, formdata);
-};
-
-export const deleteNote = (id: Id) => {
-  return apiHelper.delete<ApiResponse<unknown>>(`notes/deleteNote/${id}`);
-};
+export const deleteNote = (propertyId: string, noteId: string) =>
+  apiClient.delete(`/properties/${propertyId}/notes/${noteId}`);

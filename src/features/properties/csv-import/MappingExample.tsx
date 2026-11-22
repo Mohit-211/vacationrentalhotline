@@ -5,7 +5,7 @@ const mappings = [
   ["Secondary Email", "Email 2"],
   ["Primary Phone Number", "Phone Number 1"],
   ["Secondary Phone Number", "Phone Number 2"],
-  ["Postal Code", "ZIP Code"],
+  ["Postal Code", "ZIP or Postal Code"],
 ];
 
 const MappingExample = () => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { COUNTRY_CODES, findCountry, findRegion, isCountryCode, isValidPostalCode } from "@/lib/locations";
-import { blank, optionalPhone, optionalText, requiredText } from "./fields";
+import { blank, optionalPhone, optionalText, requiredText, type SameKeys } from "./fields";
 
 // The account page's profile fields. Each one is optional in an update, and
 // null (or blank) clears it; the name can't be cleared. The email address
@@ -18,7 +18,17 @@ export const accountUpdateSchema = z
   })
   .strict();
 
-export type AccountUpdate = z.input<typeof accountUpdateSchema>;
+/** The profile fields to change; null or "" clears one (except the name). */
+export interface AccountUpdate {
+  name?: string;
+  phone?: string | null;
+  streetAddress?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
+  regionCode?: string | null;
+  postalCode?: string | null;
+}
+true satisfies SameKeys<AccountUpdate, z.output<typeof accountUpdateSchema>>;
 
 export interface AccountAddress {
   countryCode?: string | null;

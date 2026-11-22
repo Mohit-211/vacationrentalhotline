@@ -54,6 +54,25 @@ run yet. The migrate script needs only `DATABASE_URL` and the runtime packages.
 | Owner app | `/dashboard`, `/properties/new`, `/properties/[id]`, `/properties/[id]/edit`, `/account`, `/account/password` |
 
 Older URLs (such as `/addnewproperty` or `/email-verify`) redirect permanently to these; see `next.config.ts`.
+Signed-in pages send visitors without a session to `/login` first (`src/proxy.ts`).
+
+## API
+
+Route handlers under `src/app/api`, on the same origin as the site. The session is Better Auth's httpOnly
+cookie. Responses are `{ "data": ... }`, or `{ "error": { "code", "message", "fields"? } }` with a matching
+status (400, 401, 403, 404, 500).
+
+| Endpoint | What it does |
+| -------- | ------------ |
+| `/api/auth/*` | Better Auth: sign-up, sign-in, sign-out, session, email verification, password reset and change, email change |
+| `GET, POST, DELETE /api/properties` | List the user's properties (`?status=active\|inactive`), add 1–500, delete several |
+| `GET, PATCH, DELETE /api/properties/:id` | One property with its notes; partial update; delete |
+| `GET, POST /api/properties/:id/notes`, `GET, PATCH, DELETE …/notes/:noteId` | Notes on a property |
+| `GET, PATCH /api/account` | The user's profile (name, phone, address) |
+| `POST /api/contact-messages` | The home page's contact form |
+| `GET /api/locations` | Canada and the United States with their provinces and states |
+
+Request rules live in `src/lib/schemas` and are shared with the forms.
 
 ## Project structure
 

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
-import { requestEmailChange } from "@/lib/api/auth";
+import { authClient, authErrorMessage } from "@/lib/auth-client";
 import { isEmail } from "@/lib/validation";
 
 const schema = z.object({
@@ -25,29 +25,20 @@ const ChangeEmailForm = ({ onEmailChangeSuccess }: { onEmailChangeSuccess: () =>
   } = useForm<ChangeEmailValues>({ resolver: zodResolver(schema), mode: "onChange", defaultValues: { email: "" } });
 
   const handleEmailChange = async (values: ChangeEmailValues) => {
-    const formData = {
-      newEmail: values.email,
-    };
-
     setLoading(true);
-
-    try {
-      const response = await requestEmailChange(formData);
-      if (response?.data?.message) {
-        toast.success(response.data.message || "Email updated successfully");
-        onEmailChangeSuccess();
-      } else {
-        toast.error("Failed to update email. Please try again.");
-      }
-    } catch (error) {
-      console.error("Error updating email:", error);
-    } finally {
-      setLoading(false);
+    // Emails a confirmation link to the new address; the email changes once it's opened.
+    const { error } = await authClient.changeEmail({ newEmail: values.email.trim(), callbackURL: "/account" });
+    setLoading(false);
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
     }
+    toast.success("Verification email sent to new address.");
+    onEmailChangeSuccess();
   };
 
   return (
-    <form noValidate onSubmit={handleSubmit(handleEmailChange)} className="grid max-w-md gap-5">
+    <form method="post" noValidate onSubmit={handleSubmit(handleEmailChange)} className="grid max-w-md gap-5">
       <FormField id="change_email_email" label="New Email" required error={errors.email?.message}>
         <Input type="email" placeholder="Enter your new email" autoComplete="email" {...register("email")} />
       </FormField>

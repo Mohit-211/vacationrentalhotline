@@ -1,49 +1,24 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { checkResetToken } from "@/lib/api/auth";
+import { useSyncExternalStore } from "react";
 import ResetPasswordForm from "@/features/auth/ResetPasswordForm";
 import LinkExpired from "@/features/auth/LinkExpired";
-import { Spinner } from "@/components/ui/Spinner";
 
 const subscribe = () => () => {};
 // Read in the browser; useSearchParams would need a Suspense boundary.
-const readToken = () => new URLSearchParams(window.location.search).get("token");
+const readParams = () => window.location.search;
 
+/**
+ * The emailed reset link goes through /api/auth/reset-password/:token, which
+ * checks the token and then opens this page with ?token=... when it's valid,
+ * or ?error=INVALID_TOKEN when it has expired or was already used.
+ */
 const ResetPasswordPage = () => {
-  const token = useSyncExternalStore(subscribe, readToken, () => null);
-  const [isLinkValid, setIsLinkValid] = useState<boolean | null>(null); // null while checking
-
-  useEffect(() => {
-    if (!token) return;
-    checkResetToken({ token })
-      .then(() => {
-        setIsLinkValid(true);
-      })
-      .catch((error) => {
-        console.log(error, "Error verifying link");
-        setTimeout(() => {
-          setIsLinkValid(false);
-        }, 100);
-      });
-  }, [token]);
-
-  if (!token) {
-    return (
-      <div className="flex items-center gap-3 py-16 text-muted-foreground">
-        <Spinner className="size-5" />
-        Redirecting...
-      </div>
-    );
-  }
-  if (isLinkValid === false) return <LinkExpired />;
-  if (isLinkValid === true) return <ResetPasswordForm />;
-  return (
-    <div className="flex items-center gap-3 py-16 text-muted-foreground">
-      <Spinner className="size-5" />
-      Checking your reset link…
-    </div>
-  );
+  const search = useSyncExternalStore(subscribe, readParams, () => null);
+  if (search === null) return null;
+  const params = new URLSearchParams(search);
+  if (params.get("error") || !params.get("token")) return <LinkExpired />;
+  return <ResetPasswordForm />;
 };
 
 export default ResetPasswordPage;

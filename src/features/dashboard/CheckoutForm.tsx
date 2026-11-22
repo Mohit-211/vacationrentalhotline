@@ -103,7 +103,7 @@ const CheckoutForm = ({ amount, description, onCloseModal, property_id, onPaymen
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4">
+    <form method="post" onSubmit={handleSubmit} className="grid gap-4">
       <div className="rounded-lg border border-input bg-surface px-3 py-3 shadow-xs">
         <CardElement options={cardOptions} />
       </div>

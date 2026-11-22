@@ -16,6 +16,7 @@ import {
   requiredEmail,
   requiredPhone,
   requiredText,
+  type SameKeys,
 } from "./fields";
 
 // One property as the form and the API take it. The messages are the ones
@@ -39,7 +40,9 @@ export const propertyFieldsSchema = z.object({
   addressLine2: optionalText(100, "Address Line 2 cannot exceed 100 characters."),
   city: requiredText("Please input your City!", 100, "City cannot exceed 100 characters."),
   countryCode: z.preprocess(blank, z.enum(COUNTRY_CODES, { error: "Please select your Country!" })),
-  regionCode: requiredText("Please select your State!", 3, "Please select your State!"),
+  // Required, and checked against the country's list, by the rules below, so
+  // the message can say "Province"; only listed codes (2 letters) get through.
+  regionCode: z.preprocess(blank, z.string().optional()),
   postalCode: optionalText(10, "Please enter a valid Zip or Postal Code."),
 });
 
@@ -53,7 +56,8 @@ const trimmed = (value: unknown) => (typeof value === "string" ? value.trim() : 
 export const propertyInputSchema = propertyFieldsSchema
   .refine((draft: Draft) => {
     const region = trimmed(draft?.regionCode);
-    return !region || !isCountryCode(draft?.countryCode) || Boolean(findRegion(draft.countryCode, region));
+    if (!region) return false;
+    return !isCountryCode(draft?.countryCode) || Boolean(findRegion(draft.countryCode, region));
   }, { path: ["regionCode"], ...evenWithOtherErrors, error: (issue) => `Please select your ${regionLabel(issue.input as Draft)}!` })
   .refine((draft: Draft) => Boolean(trimmed(draft?.postalCode)), {
     path: ["postalCode"],
@@ -73,11 +77,26 @@ export const propertyInputSchema = propertyFieldsSchema
   })
   .transform((property) => ({
     ...property,
+    // Both are present once the rules above pass.
+    regionCode: property.regionCode ?? "",
     postalCode: normalizePostalCode(property.countryCode, property.postalCode ?? ""),
   }));
 
-/** What the form and API send for one property. */
-export type PropertyInput = z.input<typeof propertyInputSchema>;
+/** One property as the form and the API send it. Optional fields may be blank or null. */
+export interface PropertyInput {
+  ownerName: string;
+  ownerEmail: string;
+  ownerAltEmail?: string | null;
+  ownerPhone: string;
+  ownerAltPhone?: string | null;
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  countryCode: string;
+  regionCode: string;
+  postalCode: string;
+}
+true satisfies SameKeys<PropertyInput, z.output<typeof propertyFieldsSchema>>;
 /** The same after validation: trimmed, blanks removed, postal code normalised. */
 export type PropertyValues = z.output<typeof propertyInputSchema>;
 

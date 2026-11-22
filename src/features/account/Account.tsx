@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { AtSign, KeyRound, UserRound } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import StatusMessage from "@/components/ui/StatusMessage";
-import { getProfile } from "@/lib/api/profile";
-import type { UserProfile } from "@/lib/api/types";
+import { getAccount } from "@/lib/api/account";
+import type { Account as AccountDetails } from "@/lib/api/types";
 import { useIsClient } from "@/lib/useIsClient";
 import EditProfileForm from "./EditProfileForm";
 import ChangePasswordForm from "./ChangePasswordForm";
@@ -20,11 +20,11 @@ const Account = () => {
   const isClient = useIsClient();
   const [isPasswordChanged, setIsPasswordChanged] = useState(false);
   const [isEmailChanged, setIsEmailChanged] = useState(false);
-  const [profileData, setProfileData] = useState<UserProfile>();
+  const [profileData, setProfileData] = useState<AccountDetails>();
   const router = useRouter();
 
   useEffect(() => {
-    getProfile()
+    getAccount()
       .then((res) => {
         setProfileData(res?.data?.data);
       })
@@ -76,7 +76,7 @@ const Account = () => {
             <UserRound className="size-6" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <p className="truncate font-heading font-bold">{profileData?.user_profile?.name}</p>
+            <p className="truncate font-heading font-bold">{profileData?.name}</p>
             <p className="truncate text-sm text-muted-foreground">{profileData?.email}</p>
           </div>
         </div>

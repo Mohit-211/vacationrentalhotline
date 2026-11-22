@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Controller, useForm, type Resolver } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -12,123 +12,99 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
-import { getCities, getCountries, getStates } from "@/lib/api/locations";
-import { getProfile, updateProfile } from "@/lib/api/profile";
-import type { City, Country, State, UpdateProfileInput } from "@/lib/api/types";
-import { isEmail, isValidPhone } from "@/lib/validation";
+import { getAccount, updateAccount } from "@/lib/api/account";
+import { COUNTRIES, findCountry, isCountryCode, isValidPostalCode } from "@/lib/locations";
+import { isValidPhone } from "@/lib/validation";
 
-const filled = (value: unknown) => value !== undefined && value !== null && value !== "";
-const text = (message: string) => z.unknown().refine(filled, message);
+const schema = z
+  .object({
+    name: z.string().trim().min(1, "Please input your name!").max(150, "Name cannot exceed 150 characters."),
+    email: z.string(),
+    phone: z
+      .string()
+      .min(1, "Please input your mobile!")
+      .refine((value) => !value || isValidPhone(value), "Invalid phone number."),
+    streetAddress: z
+      .string()
+      .trim()
+      .min(1, "Please input your home address!")
+      .max(255, "Address cannot exceed 255 characters."),
+    city: z.string().trim().max(100, "City cannot exceed 100 characters."),
+    countryCode: z.string(),
+    regionCode: z.string(),
+    postalCode: z.string().trim().min(1, "Please input your zip code!").max(10, "Please enter a valid zip code."),
+  })
+  .refine((values) => !isCountryCode(values.countryCode) || isValidPostalCode(values.countryCode, values.postalCode), {
+    path: ["postalCode"],
+    when: () => true,
+    error: (issue) =>
+      (issue.input as { countryCode?: string })?.countryCode === "CA"
+        ? "Canadian Postal Code must look like A1A 1A1."
+        : "US Zip Code must be 5 digits, or ZIP+4 such as 12345-6789.",
+  });
+type ProfileFormValues = z.infer<typeof schema>;
 
-const schema = z.object({
-  name: text("Please input your name!"),
-  email: text("Please input your email!").refine((v) => isEmail(String(v)), "Please input your email!"),
-  mobile: z
-    .unknown()
-    .superRefine((value, ctx) => {
-      if (!filled(value)) ctx.addIssue({ code: "custom", message: "Please input your mobile!" });
-      else if (!isValidPhone(String(value))) ctx.addIssue({ code: "custom", message: "Invalid phone number." });
-    }),
-  address: text("Please input your home address!"),
-  zip_code: text("Please input your zip code!"),
-});
+const emptyProfile: ProfileFormValues = {
+  name: "",
+  email: "",
+  phone: "",
+  streetAddress: "",
+  city: "",
+  countryCode: "",
+  regionCode: "",
+  postalCode: "",
+};
 
-type ProfileFormValues = Partial<Record<keyof UpdateProfileInput, string | number | null>>;
+const countryOptions = COUNTRIES.map((country) => ({ value: country.code, label: country.name }));
 
 const EditProfileForm = () => {
-  const [phoneNumber, setPhoneNumber] = useState<string | undefined>("");
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [states, setStates] = useState<State[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [selectedCountry, setSelectedCountry] = useState<number | null>(null);
-  const [selectedState, setSelectedState] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-  const { control, handleSubmit, reset } = useForm<ProfileFormValues>({
-    // `raw` hands the form's own values to onSubmit, untouched by the schema.
-    resolver: zodResolver(schema, undefined, { raw: true }) as Resolver<ProfileFormValues>,
+  const { control, handleSubmit, reset, setValue, getValues, trigger } = useForm<ProfileFormValues>({
+    resolver: zodResolver(schema),
     mode: "onChange",
+    defaultValues: emptyProfile,
   });
-
-  const handleCountryChange = (countryId: number) => {
-    setSelectedCountry(countryId);
-    setSelectedState(null);
-    setCities([]);
-    getStates(countryId)
-      .then((res) => {
-        setStates(res?.data?.data[0]?.all_state || []);
-      })
-      .catch((error) => {
-        console.error("Error fetching states:", error);
-      });
-  };
-
-  const handleStateChange = (stateId: number) => {
-    setSelectedState(stateId);
-    getCities(stateId)
-      .then((res) => {
-        setCities(res?.data?.data || []);
-      })
-      .catch((error) => {
-        console.error("Error fetching cities:", error);
-      });
-  };
+  const countryCode = useWatch({ control, name: "countryCode" });
+  const country = findCountry(countryCode);
 
   useEffect(() => {
-    getCountries()
+    getAccount()
       .then((res) => {
-        setCountries(
-          res?.data?.data.filter((country) => country.name === "Canada" || country.name === "United States") || []
-        );
+        const account = res.data.data;
+        reset({
+          name: account.name,
+          email: account.email,
+          phone: account.phone ?? "",
+          streetAddress: account.streetAddress ?? "",
+          city: account.city ?? "",
+          countryCode: account.countryCode ?? "",
+          regionCode: account.regionCode ?? "",
+          postalCode: account.postalCode ?? "",
+        });
       })
-      .catch((error) => {
-        console.error("Error fetching countries:", error);
-      });
-
-    getProfile()
-      .then((res) => {
-        const profileData = res?.data?.data;
-        if (profileData) {
-          setPhoneNumber(profileData?.mobile);
-          reset({
-            name: profileData?.user_profile?.name,
-            email: profileData?.email,
-            mobile: profileData?.user_profile?.mobile,
-            address: profileData?.user_profile?.address,
-            country_id: profileData?.user_profile?.country_id,
-            state_id: profileData?.user_profile?.state_id,
-            city_id: profileData?.user_profile?.city_id,
-            zip_code: profileData?.user_profile?.zip_code,
-          });
-          setSelectedCountry(profileData?.user_profile?.country_id ?? null);
-          setSelectedState(profileData?.user_profile?.state_id ?? null);
-          if (profileData?.user_profile?.country_id) {
-            handleCountryChange(profileData?.user_profile?.country_id);
-          }
-          if (profileData?.user_profile?.state_id) {
-            handleStateChange(profileData?.user_profile?.state_id);
-          }
-        }
-        setLoadingData(false);
+      .catch(() => {
+        // The API client has already shown the error.
       })
-      .catch((e) => {
-        console.error("Error fetching profile:", e);
-        setLoadingData(false);
-      });
-    // Loads once, like the old form; the change handlers are plain functions.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .finally(() => setLoadingData(false));
+  }, [reset]);
 
   const onSubmit = async (values: ProfileFormValues) => {
     setLoading(true);
-    // As before, the number sent is the one loaded with the profile
-    // (or the one typed), not necessarily the one the field showed.
-    const updatedValues = { ...values, mobile: phoneNumber } as UpdateProfileInput;
     try {
-      const res = await updateProfile(updatedValues);
-      toast.success(res?.data?.message || "Profile Updated");
-    } catch (e) {
-      console.error("Error updating profile:", e);
+      const res = await updateAccount({
+        name: values.name,
+        phone: values.phone || null,
+        streetAddress: values.streetAddress,
+        city: values.city || null,
+        countryCode: values.countryCode || null,
+        regionCode: values.regionCode || null,
+        postalCode: values.postalCode,
+      });
+      reset({ ...values, postalCode: res.data.data.postalCode ?? "" });
+      toast.success("Profile Updated Successfully.");
+    } catch {
+      // The API client has already shown the error.
     } finally {
       setLoading(false);
     }
@@ -147,49 +123,37 @@ const EditProfileForm = () => {
     );
   }
 
-  const locationOptions = (items: { id: number; name: string }[]) =>
-    items.map((item) => ({ value: item.id, label: item.name }));
-
   return (
-    <form noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)} className="grid gap-5 md:grid-cols-2">
+    <form method="post" noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)} className="grid gap-5 md:grid-cols-2">
       <Controller
         control={control}
         name="name"
         render={({ field, fieldState }) => (
           <FormField id="profile_name" label="Name" required error={fieldState.error?.message} className="md:col-span-2">
-            <Input
-              ref={field.ref}
-              value={(field.value as string | null | undefined) ?? ""}
-              onChange={(e) => field.onChange(e.target.value)}
-              onBlur={field.onBlur}
-              placeholder="Enter Name"
-            />
+            <Input {...field} placeholder="Enter Name" autoComplete="name" />
           </FormField>
         )}
       />
       <Controller
         control={control}
         name="email"
-        render={({ field, fieldState }) => (
-          <FormField id="profile_email" label="Email" required error={fieldState.error?.message}>
-            <Input value={(field.value as string | null | undefined) ?? ""} placeholder="Enter Email" disabled readOnly />
+        render={({ field }) => (
+          <FormField id="profile_email" label="Email" hint="Change it in the Change Email tab.">
+            <Input value={field.value} placeholder="Enter Email" disabled readOnly />
           </FormField>
         )}
       />
       <Controller
         control={control}
-        name="mobile"
+        name="phone"
         render={({ field, fieldState }) => (
           <FormField id="profile_mobile" label="Mobile" required error={fieldState.error?.message}>
             <PhoneInput
               placeholder="Enter Mobile Number"
               defaultCountry="US"
               countries={["US", "CA"]}
-              value={(field.value as string | null | undefined) ?? undefined}
-              onChange={(value) => {
-                field.onChange(value);
-                setPhoneNumber(value);
-              }}
+              value={field.value || undefined}
+              onChange={(value) => field.onChange(value ?? "")}
               onBlur={field.onBlur}
             />
           </FormField>
@@ -197,7 +161,7 @@ const EditProfileForm = () => {
       />
       <Controller
         control={control}
-        name="address"
+        name="streetAddress"
         render={({ field, fieldState }) => (
           <FormField
             id="profile_address"
@@ -206,30 +170,26 @@ const EditProfileForm = () => {
             error={fieldState.error?.message}
             className="md:col-span-2"
           >
-            <Textarea
-              ref={field.ref}
-              rows={4}
-              value={(field.value as string | null | undefined) ?? ""}
-              onChange={(e) => field.onChange(e.target.value)}
-              onBlur={field.onBlur}
-              placeholder="Enter your Home Address"
-            />
+            <Textarea {...field} rows={4} placeholder="Enter your Home Address" autoComplete="street-address" />
           </FormField>
         )}
       />
       <Controller
         control={control}
-        name="country_id"
+        name="countryCode"
         render={({ field }) => (
-          <FormField id="profile_country_id" label="Country">
+          <FormField id="profile_country" label="Country">
             <Combobox
               placeholder="Select Country"
               searchPlaceholder="Search country"
-              options={locationOptions(countries)}
-              value={field.value as number | null | undefined}
+              options={countryOptions}
+              value={field.value}
               onChange={(value) => {
-                field.onChange(value);
-                handleCountryChange(value as number);
+                field.onChange(String(value));
+                // A state from the old country no longer applies, and the
+                // postal code is checked against the new country's format.
+                setValue("regionCode", "");
+                if (getValues("postalCode")) void trigger("postalCode");
               }}
             />
           </FormField>
@@ -237,50 +197,38 @@ const EditProfileForm = () => {
       />
       <Controller
         control={control}
-        name="state_id"
+        name="regionCode"
         render={({ field }) => (
-          <FormField id="profile_state_id" label="State">
+          <FormField id="profile_region" label={country?.regionLabel ?? "State"}>
             <Combobox
-              placeholder="Select State"
-              searchPlaceholder="Search state"
-              options={locationOptions(states)}
-              value={field.value as number | null | undefined}
-              disabled={!selectedCountry}
-              onChange={(value) => {
-                field.onChange(value);
-                handleStateChange(value as number);
-              }}
+              placeholder={`Select ${country?.regionLabel ?? "State"}`}
+              searchPlaceholder={`Search ${(country?.regionLabel ?? "state").toLowerCase()}`}
+              options={(country?.regions ?? []).map((region) => ({ value: region.code, label: region.name }))}
+              value={field.value}
+              disabled={!country}
+              onChange={(value) => field.onChange(String(value))}
             />
           </FormField>
         )}
       />
       <Controller
         control={control}
-        name="city_id"
-        render={({ field }) => (
-          <FormField id="profile_city_id" label="City">
-            <Combobox
-              placeholder="Select City"
-              searchPlaceholder="Search city"
-              options={locationOptions(cities)}
-              value={field.value as number | null | undefined}
-              disabled={!selectedState}
-              onChange={(value) => field.onChange(value)}
-            />
-          </FormField>
-        )}
-      />
-      <Controller
-        control={control}
-        name="zip_code"
+        name="city"
         render={({ field, fieldState }) => (
-          <FormField id="profile_zip_code" label="Zip Code" required error={fieldState.error?.message}>
+          <FormField id="profile_city" label="City" error={fieldState.error?.message}>
+            <Input {...field} placeholder="Enter City" autoComplete="address-level2" />
+          </FormField>
+        )}
+      />
+      <Controller
+        control={control}
+        name="postalCode"
+        render={({ field, fieldState }) => (
+          <FormField id="profile_zip_code" label={country?.postalCodeLabel ?? "Zip Code"} required error={fieldState.error?.message}>
             <Input
-              ref={field.ref}
-              value={(field.value as string | null | undefined) ?? ""}
-              onChange={(e) => field.onChange(e.target.value)}
-              onBlur={field.onBlur}
-              placeholder="Enter Zip Code"
+              {...field}
+              placeholder={country ? `e.g. ${country.postalCodeExample}` : "Enter Zip Code"}
+              autoComplete="postal-code"
             />
           </FormField>
         )}

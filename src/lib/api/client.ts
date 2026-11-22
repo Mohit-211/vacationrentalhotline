@@ -1,73 +1,32 @@
 import axios, { type AxiosError } from "axios";
 import { toast } from "sonner";
-import { clearToken, getToken } from "@/lib/session";
 import type { ApiErrorBody } from "./types";
 
-const BASE_URL = "https://node.vacationrentalhotline.com:5000/api/v1/";
-
-const getHeaders = (
-  token: string | null,
-  extraHeaders: Record<string, string | number> = {}
-) => {
-  const headers: Record<string, string | number> = {
-    role_id: 6,
-    ...extraHeaders,
-  };
-  if (token) {
-    headers["x-access-token"] = token;
-  }
-  return headers;
-};
-
-const apiHelper = axios.create({
-  baseURL: BASE_URL,
+// Calls this site's own API under /api. The session cookie goes along
+// automatically; it's httpOnly, so no script can read it.
+const apiClient = axios.create({
+  baseURL: "/api",
+  headers: { Accept: "application/json" },
 });
 
-apiHelper.interceptors.request.use(
-  (config) => {
-    config.headers.set(getHeaders(getToken()));
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-apiHelper.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+apiClient.interceptors.response.use(
+  (response) => response,
   (error: AxiosError<ApiErrorBody>) => {
-    if (error.response) {
-      const status = error.response.status;
-      if (
-        status === 401 ||
-        error?.response?.data?.message === "Please authenticate"
-      ) {
-        toast.error("Please Login to Continue")
-        window.location.href = "/login";
-        clearToken();
-      } else if (
-        status === 404 ||
-        error?.response?.data?.message === "User Not Found"
-      ) {
-        toast.error(error?.response?.data?.message);
-        window.location.href = "/login";
-        clearToken();
-      } else if (status === 500 ||error?.response?.data?.message === "jwt expire" ) {
-        toast.error("Server error, please try again later.");
-        window.location.href = "/login";
-        clearToken();
-      } else {
-        toast.error(error.response.data.message || "An error occurred.");
-      }
+    if (error.response?.status === 401) {
+      // The session ended (signed out elsewhere, or expired).
+      toast.error("Please Login to Continue");
+      // A full page load, since this runs outside React.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/login";
+    } else if (error.response) {
+      toast.error(error.response.data?.error?.message ?? "Something went wrong. Please try again.");
     } else if (error.request) {
       toast.error("Network error, please check your internet connection.");
     } else {
       toast.error(error.message || "An unknown error occurred.");
     }
     return Promise.reject(error);
-  }
+  },
 );
 
-export default apiHelper;
+export default apiClient;

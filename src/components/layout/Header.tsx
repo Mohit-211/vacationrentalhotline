@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { Logo } from "@/components/ui/Logo";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
-import { clearToken, getToken } from "@/lib/session";
+import { authClient, useSession } from "@/lib/auth-client";
 import { useIsClient } from "@/lib/useIsClient";
 
 const sections = [
@@ -33,7 +33,10 @@ const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
   const isClient = useIsClient();
-  const token = isClient ? getToken() : null;
+  const { data: session, isPending } = useSession();
+  // Until the session is known, the account area keeps its space empty.
+  const sessionKnown = isClient && !isPending;
+  const signedIn = sessionKnown && Boolean(session);
   const [menuOpen, setMenuOpen] = useState(false);
   const showSectionLinks = isClient && pathname === "/";
 
@@ -46,9 +49,10 @@ const Header = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Ends the session on the server too, not just in this browser.
+    await authClient.signOut();
     router.push("/");
-    clearToken();
   };
 
   return (
@@ -71,10 +75,10 @@ const Header = () => {
                 {section.label}
               </button>
             ))}
-          {!isClient ? (
+          {!sessionKnown ? (
             // Reserve the account area's space until the session is known.
             <div className="ml-3 h-9 w-44" aria-hidden="true" />
-          ) : token ? (
+          ) : signedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="ml-3">
@@ -131,7 +135,7 @@ const Header = () => {
                     </button>
                   </SheetClose>
                 ))}
-              {isClient && token ? (
+              {signedIn ? (
                 <>
                   <SheetClose asChild>
                     <button type="button" className={sheetLinkClasses} onClick={() => router.push("/account/password")}>

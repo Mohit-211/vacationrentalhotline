@@ -19,9 +19,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { deleteProperties, getPropertiesByType } from "@/lib/api/properties";
+import { deleteProperties, listProperties } from "@/lib/api/properties";
 import { getTotalAmount } from "@/lib/api/payments";
-import type { Id, PaymentTotal, Property, SubscriptionStatus } from "@/lib/api/types";
+import type { PaymentTotal, Property, PropertyStatus } from "@/lib/api/types";
 import CheckoutForm from "./CheckoutForm";
 
 const column = dataTableColumns<Property>();
@@ -32,10 +32,10 @@ const Dashboard = () => {
   const [data, setData] = useState<Property[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY as string);
-  const [selectedIds, setSelectedIds] = useState<Id[]>([]);
-  const [propertyId, setPropertyId] = useState<Id>();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [propertyId, setPropertyId] = useState<string>();
   const [paymentTotal, setPaymentTotal] = useState<PaymentTotal>();
-  const [status, setStatus] = useState<SubscriptionStatus>("DEACTIVATE");
+  const [status, setStatus] = useState<PropertyStatus>("inactive");
 
   // Button loading states
   const [payNowLoading, setPayNowLoading] = useState(false);
@@ -50,12 +50,12 @@ const Dashboard = () => {
   };
   const isNavigatingTo = (path: string) => isNavigating && navigatingTo === path;
   const addNewLoading = isNavigatingTo("/properties/new");
-  const viewDetailLoading = (id: Id) => isNavigatingTo(`/properties/${id}`);
+  const viewDetailLoading = (id: string) => isNavigatingTo(`/properties/${id}`);
 
-  const fetchProperties = (type: SubscriptionStatus) => {
-    getPropertiesByType({ type })
+  const fetchProperties = (type: PropertyStatus) => {
+    listProperties(type)
       .then((res) => {
-        setData(res?.data?.data);
+        setData(res.data.data);
       })
       .catch(() => {
         // The axios interceptor already shows an error message.
@@ -74,15 +74,15 @@ const Dashboard = () => {
     fetchProperties(status);
   }, [status]);
 
-  const handleEditProperty = (id: Id) => {
+  const handleEditProperty = (id: string) => {
     router.push(`/properties/${id}/edit`);
   };
 
-  const startPayment = async (propertyId?: Id) => {
+  const startPayment = async (propertyId?: string) => {
     setPayNowLoading(true);
     setPropertyId(propertyId);
     const formData = {
-      property_id: selectedIds.length === 0 ? [propertyId as Id] : selectedIds,
+      property_id: selectedIds.length === 0 ? [propertyId as string] : selectedIds,
     };
     try {
       const res = await getTotalAmount(formData);
@@ -103,39 +103,39 @@ const Dashboard = () => {
     setCheckoutOpen(false);
   };
 
-  const handleDeleteProperty = async (propertyId?: Id) => {
+  const handleDeleteProperty = async (propertyId?: string) => {
     setDeleteLoading(true);
     setPropertyId(propertyId);
-    const formData = {
-      property_ids: selectedIds.length === 0 ? [propertyId as Id] : selectedIds,
-    };
+    const ids = selectedIds.length === 0 ? [propertyId as string] : selectedIds;
     try {
-      const res = await deleteProperties(formData);
-      toast.success(res?.data?.message || "Property deleted.");
+      const res = await deleteProperties(ids);
+      const { deleted } = res.data.data;
+      toast.success(deleted === 1 ? "Property deleted." : `${deleted} properties deleted.`);
+      setSelectedIds([]);
       reloadProperties(true);
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // The API client has already shown the error.
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  const handleViewDetail = (id: Id) => {
+  const handleViewDetail = (id: string) => {
     navigateTo(`/properties/${id}`);
   };
 
   const columns = column.columns([
-    column.accessor("property_owner_name", {
+    column.accessor("ownerName", {
       header: "Property Owner",
       cell: ({ getValue, row }) => (
         <div>
           <span className="font-semibold">{getValue()}</span>
           {/* Small screens show the address here instead of in its own column. */}
-          <p className="mt-0.5 text-muted-foreground sm:hidden">{row.original.full_address}</p>
+          <p className="mt-0.5 text-muted-foreground sm:hidden">{row.original.fullAddress}</p>
         </div>
       ),
     }),
-    column.accessor("full_address", {
+    column.accessor("fullAddress", {
       header: "Rental Address",
       meta: { className: "hidden sm:table-cell" },
       cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
@@ -166,14 +166,14 @@ const Dashboard = () => {
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`Actions for ${row.original.property_owner_name ?? "property"}`}
+                    aria-label={`Actions for ${row.original.ownerName}`}
                   >
                     <EllipsisVertical aria-hidden="true" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onSelect={() => handleEditProperty(row.original.id)}>Edit</DropdownMenuItem>
-                  {status !== "ACTIVATE" && (
+                  {status !== "active" && (
                     <>
                       <DropdownMenuItem variant="danger" onSelect={() => handleDeleteProperty(row.original.id)}>
                         Delete
@@ -196,9 +196,9 @@ const Dashboard = () => {
   const empty = (
     <EmptyState
       icon={<Building2 aria-hidden="true" />}
-      title={status === "ACTIVATE" ? "No active properties" : "No inactive properties"}
+      title={status === "active" ? "No active properties" : "No inactive properties"}
       description={
-        status === "ACTIVATE"
+        status === "active"
           ? "Properties appear here once their subscription is paid."
           : "Add a property to get started."
       }
@@ -211,13 +211,13 @@ const Dashboard = () => {
         title="My Properties"
         actions={
           <>
-            {status !== "ACTIVATE" && (
+            {status !== "active" && (
               <Button variant="secondary" disabled={selectedIds.length === 0} onClick={() => startPayment()}>
                 {payNowLoading && <Spinner label="Loading amount" />}
                 Pay Now
               </Button>
             )}
-            {status !== "ACTIVATE" && (
+            {status !== "active" && (
               <Button
                 variant="outline"
                 className="text-danger"
@@ -238,17 +238,17 @@ const Dashboard = () => {
       <Tabs
         value={status}
         onValueChange={(key) => {
-          setStatus(key as SubscriptionStatus);
+          setStatus(key as PropertyStatus);
           setSelectedIds([]); // Clear selected rows
           setLoading(true);
         }}
         className="space-y-4"
       >
         <TabsList>
-          <TabsTrigger value="DEACTIVATE">Inactive Properties</TabsTrigger>
-          <TabsTrigger value="ACTIVATE">Active Properties</TabsTrigger>
+          <TabsTrigger value="inactive">Inactive Properties</TabsTrigger>
+          <TabsTrigger value="active">Active Properties</TabsTrigger>
         </TabsList>
-        <TabsContent value="DEACTIVATE" className="space-y-3">
+        <TabsContent value="inactive" className="space-y-3">
           <p className="min-h-5 text-sm text-muted-foreground" aria-live="polite">
             {selectedIds.length ? `Selected ${selectedIds.length} items` : ""}
           </p>
@@ -258,12 +258,12 @@ const Dashboard = () => {
             data={data}
             getRowId={(row) => row.id}
             selectedIds={selectedIds}
-            onSelectedIdsChange={setSelectedIds}
+            onSelectedIdsChange={(ids) => setSelectedIds(ids.map(String))}
             loading={loading}
             empty={empty}
           />
         </TabsContent>
-        <TabsContent value="ACTIVATE">
+        <TabsContent value="active">
           <DataTable
             aria-label="Active properties"
             columns={columns}
@@ -284,7 +284,7 @@ const Dashboard = () => {
             <CheckoutForm
               amount={Number(paymentTotal?.totalAmount) * 100}
               currency="USD"
-              property_id={selectedIds.length === 0 ? [propertyId as Id] : selectedIds}
+              property_id={selectedIds.length === 0 ? [propertyId as string] : selectedIds}
               description="Purchase"
               onCloseModal={closeCheckout}
               onPaymentSuccess={handlePaymentSuccess}

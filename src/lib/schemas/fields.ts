@@ -31,5 +31,8 @@ export const requiredPhone = (requiredMessage: string, invalidMessage: string) =
 export const optionalPhone = (invalidMessage: string) =>
   z.preprocess(blank, z.string().max(20, invalidMessage).refine(isValidPhone, invalidMessage).optional());
 
+/** Fails to compile unless the two key sets are the same. */
+export type SameKeys<A, B> = [Exclude<keyof A, keyof B>, Exclude<keyof B, keyof A>] extends [never, never] ? true : never;
+
 /** Options for an object-level rule that must run even when other fields already have errors. */
 export const evenWithOtherErrors = { when: () => true } as const;

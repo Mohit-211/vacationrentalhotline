@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requiredEmail, requiredPhone, requiredText } from "./fields";
+import { requiredEmail, requiredPhone, requiredText, type SameKeys } from "./fields";
 
 // The home page's contact form. The messages are the ones it has always shown.
 export const contactMessageSchema = z.object({
@@ -9,4 +9,10 @@ export const contactMessageSchema = z.object({
   message: requiredText("Please input your message!", 5000, "Message cannot exceed 5,000 characters."),
 });
 
-export type ContactMessageInput = z.input<typeof contactMessageSchema>;
+export interface ContactMessageInput {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}
+true satisfies SameKeys<ContactMessageInput, z.output<typeof contactMessageSchema>>;

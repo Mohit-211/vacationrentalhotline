@@ -9,19 +9,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { resetPassword } from "@/lib/api/auth";
+import { authClient, authErrorMessage } from "@/lib/auth-client";
+import { PASSWORD_HINT, passwordSchema } from "@/lib/schemas/password";
 import { AuthCard } from "./AuthCard";
 
 const schema = z
   .object({
-    password: z
-      .string()
-      .min(1, "Please input your new password!")
-      .min(8, "Password must be at least 8 characters long!")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/,
-        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character!"
-      ),
+    password: z.string().min(1, "Please input your new password!").pipe(passwordSchema),
     confirmPassword: z.string().min(1, "Please confirm your new password!"),
   })
   .refine((values) => !values.confirmPassword || values.password === values.confirmPassword, {
@@ -45,28 +39,22 @@ const ResetPasswordForm = () => {
 
   const handlePasswordChange = async (values: ResetPasswordValues) => {
     setLoading(true);
-    const token = new URLSearchParams(window.location.search).get("token");
-    const formData = {
-      password: values.password,
-      confirm_password: values.confirmPassword,
-      token: token,
-    };
-
-    try {
-      await resetPassword(formData);
-      toast.success("Password changed successfully!");
-      router.replace("/login");
-    } catch (error) {
-      console.error("Error changing password:", error);
-    } finally {
-      setLoading(false);
+    const token = new URLSearchParams(window.location.search).get("token") ?? "";
+    // Signs out every session of the account, then emails a notice.
+    const { error } = await authClient.resetPassword({ newPassword: values.password, token });
+    setLoading(false);
+    if (error) {
+      toast.error(authErrorMessage(error));
+      return;
     }
+    toast.success("Password changed successfully!");
+    router.replace("/login");
   };
 
   return (
     <AuthCard title="Reset Password" description="Choose a new password for your account.">
-      <form noValidate autoComplete="off" onSubmit={handleSubmit(handlePasswordChange)} className="grid gap-5">
-        <FormField id="reset_password" label="New Password" required error={errors.password?.message}>
+      <form method="post" noValidate autoComplete="off" onSubmit={handleSubmit(handlePasswordChange)} className="grid gap-5">
+        <FormField id="reset_password" label="New Password" required hint={PASSWORD_HINT} error={errors.password?.message}>
           <PasswordInput autoComplete="new-password" {...register("password", { deps: ["confirmPassword"] })} />
         </FormField>
         <FormField id="reset_confirmPassword" label="Confirm Password" required error={errors.confirmPassword?.message}>

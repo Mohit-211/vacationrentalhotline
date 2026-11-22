@@ -1,6 +1,5 @@
-import apiHelper from "./client";
-import type { ApiResponse, ContactInput } from "./types";
+import apiClient from "./client";
+import type { ApiResponse, ContactMessageInput } from "./types";
 
-export const submitContactForm = (formData: ContactInput) => {
-  return apiHelper.post<ApiResponse<unknown>>(`contactUs/createContactUs`, formData);
-};
+export const sendContactMessage = (message: ContactMessageInput) =>
+  apiClient.post<ApiResponse<{ id: string }>>("/contact-messages", message);
