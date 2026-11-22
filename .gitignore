@@ -1,53 +1,71 @@
 # Dependencies
-node_modules/
+/node_modules/
+/.pnp
+.pnp.*
 
-# Next.js
-.next/
-out/
-build/
+# Next.js builds and caches
+/.next/
+/out/
+/build/
+/dist/
 
-# Production builds
-dist/
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
-# Environment variables and secrets
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Keep example environment file
+# Environment files hold secrets: never commit them. Each environment keeps
+# its own; .env.example documents every variable.
+.env*
 !.env.example
 
+# Keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Database dumps hold customer data. The schema migrations in drizzle/ are
+# the only SQL that belongs in the repository.
+*.sql
+*.sql.gz
+*.dump
+!/drizzle/*.sql
+
 # Logs
-logs/
+/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-pnpm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# Testing
-coverage/
+# Tests and tooling caches
+/coverage/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+.eslintcache
 
 # Deployment
 .vercel/
 
-# macOS
+# Operating systems
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
+*~
 
 # Temporary files
-tmp/
-temp/
+/tmp/
+/temp/
