@@ -25,6 +25,8 @@ import { and, eq, isNull } from "drizzle-orm";
 /** Accounts not verified within this time are removed (src/server/jobs). */
 export const UNVERIFIED_ACCOUNT_LIFETIME_SECONDS = 12 * 60 * 60;
 
+const DAY_SECONDS = 24 * 60 * 60;
+
 /**
  * Reads the claims of an email-verification token (a JWT Better Auth has
  * already signed). Only used to pick which email to send; Better Auth
@@ -74,6 +76,11 @@ function createAuth(realm: Realm) {
       cookiePrefix: forStaff ? STAFF_COOKIE_PREFIX : AUTH_COOKIE_PREFIX,
       database: { generateId: "uuid" },
     },
+
+    // A customer who ticks "Remember me" stays signed in for 30 days, extended
+    // as they use the site. Unticked, Better Auth keeps the session for one
+    // day in a cookie that ends when the browser closes. Staff: 7 days.
+    session: { expiresIn: (forStaff ? 7 : 30) * DAY_SECONDS },
 
     // Profile changes go through /api/account, which validates the address
     // fields; account deletion isn't offered. The admin plugin's endpoints are
