@@ -1,7 +1,8 @@
 import { CircleCheck, Phone } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section, SectionHeading } from "@/components/ui/Section";
-import { formatPrice, HOTLINE_PHONE, PRICING } from "@/lib/pricing";
+import { formatPrice, PRICING } from "@/lib/pricing";
+import { HOTLINE_PHONE } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import PurchaseButton from "./PurchaseButton";
 
@@ -70,7 +71,7 @@ const Pricing = () => {
               className="mt-6 inline-flex items-center gap-3 font-heading text-2xl font-extrabold tracking-tight whitespace-nowrap underline-offset-4 hover:underline"
             >
               <Phone className="size-6 shrink-0" aria-hidden="true" />
-              {HOTLINE_PHONE.display}
+              {HOTLINE_PHONE.vanity}
             </a>
           </div>
         </div>

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Phone } from "lucide-react";
 import agentOnPhone from "@public/assets/agent-on-phone.png";
 import { Container } from "@/components/ui/Container";
+import { HOTLINE_PHONE } from "@/lib/site";
 import { Section } from "@/components/ui/Section";
 import PurchaseButton from "./PurchaseButton";
 
@@ -17,11 +18,11 @@ const MultiProperty = () => {
           </h2>
           <p className="mt-6 text-lg text-muted-foreground">For listing multiple properties over 5 please call</p>
           <a
-            href="tel:+18446468546"
+            href={HOTLINE_PHONE.href}
             className="mt-2 inline-flex items-center gap-3 font-heading text-3xl font-extrabold tracking-tight text-primary-strong transition-colors hover:text-primary-stronger"
           >
             <Phone className="size-7" aria-hidden="true" />
-            (844) 646-8546
+            {HOTLINE_PHONE.display}
           </a>
           <div>
             <PurchaseButton size="lg" className="mt-8">

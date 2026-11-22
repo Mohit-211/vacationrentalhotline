@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Mail, MapPin } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/ui/Logo";
+import { CONTACT_EMAIL, POSTAL_ADDRESS } from "@/lib/site";
 
 const quickLinks = [
   { href: "/#home", label: "Home" },
@@ -58,8 +59,8 @@ const Footer = () => {
               <Mail className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />
               <div>
                 <p className="font-semibold">Email us at</p>
-                <a href="mailto:info@vacationrentalhotline.com" className="text-primary-strong hover:text-primary-stronger hover:underline">
-                  info@vacationrentalhotline.com
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary-strong hover:text-primary-stronger hover:underline">
+                  {CONTACT_EMAIL}
                 </a>
               </div>
             </li>
@@ -68,7 +69,7 @@ const Footer = () => {
               <div>
                 <p className="font-semibold">Address</p>
                 <address className="text-muted-foreground not-italic">
-                  1001 North Barfield Dr #98 Marco Island Florida 34145
+                  {POSTAL_ADDRESS}
                 </address>
               </div>
             </li>

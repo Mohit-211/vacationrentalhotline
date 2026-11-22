@@ -12,8 +12,6 @@ export const PRICING = {
   maxPropertiesOnline: 5,
 } as const;
 
-export const HOTLINE_PHONE = { display: "(844) 6-HOTLINE", href: "tel:+18446468546" } as const;
-
 export interface Quote {
   propertyCount: number;
   /** Per property, per year. */

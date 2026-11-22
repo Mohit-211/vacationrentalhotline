@@ -3,7 +3,8 @@ import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import Stripe from "stripe";
 import { formatDate } from "@/lib/dates";
 import { formatAddress } from "@/lib/locations";
-import { HOTLINE_PHONE, PRICING, quoteFor, type Quote } from "@/lib/pricing";
+import { PRICING, quoteFor, type Quote } from "@/lib/pricing";
+import { HOTLINE_PHONE } from "@/lib/site";
 import { db } from "@/server/db";
 import { paymentItems, payments, properties, subscriptionItems, subscriptions, users } from "@/server/db/schema";
 import { sendEmailInBackground } from "@/server/email/send";
@@ -43,7 +44,7 @@ async function checkoutProperties(userId: string, propertyIds: string[]): Promis
     throw new HttpError(
       400,
       "CONTACT_US",
-      `For more than ${PRICING.maxPropertiesOnline} properties, please call us at ${HOTLINE_PHONE.display} for pricing.`,
+      `For more than ${PRICING.maxPropertiesOnline} properties, please call us at ${HOTLINE_PHONE.vanity} for pricing.`,
     );
   }
   const rows = await db()

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Check, Phone } from "lucide-react";
 import heroHouse from "@public/assets/hero-house.png";
 import { Container } from "@/components/ui/Container";
+import { HOTLINE_PHONE } from "@/lib/site";
 import PurchaseButton from "./PurchaseButton";
 
 const highlights = ["Calls answered 24/7", "Text to owner if a call received", "Email to owner / property manager"];
@@ -31,11 +32,11 @@ const Hero = () => {
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
             <PurchaseButton size="lg">Purchase Now</PurchaseButton>
             <a
-              href="tel:+18446468546"
+              href={HOTLINE_PHONE.href}
               className="inline-flex items-center gap-2 rounded-md font-semibold text-primary-strong transition-colors hover:text-primary-stronger"
             >
               <Phone className="size-4" aria-hidden="true" />
-              (844) 646-8546
+              {HOTLINE_PHONE.display}
             </a>
           </div>
           <ul className="mt-10 grid gap-3 text-sm font-medium sm:grid-cols-3">
