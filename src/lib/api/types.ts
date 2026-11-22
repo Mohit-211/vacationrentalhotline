@@ -28,22 +28,7 @@ export interface ApiErrorBody {
 
 export type PropertyWithNotes = PropertyJson & { notes: NoteJson[] };
 
-// ---- Payments (still the old API's shapes; replaced in backend phase 2) -------
+// ---- Checkout -----------------------------------------------------------------
 
-export type Id = number | string;
-
-export interface PaymentTotal {
-  totalAmount: number;
-}
-
-export interface PaymentIntentInput {
-  paymentMethod: "card";
-  amount: number;
-  currency: string;
-  property_id: Id[];
-  description: string;
-}
-
-export interface PaymentIntent {
-  clientSecret: string;
-}
+export type { Quote } from "@/lib/pricing";
+export type { StartedCheckout } from "@/server/services/billing";

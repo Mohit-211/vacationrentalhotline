@@ -3,12 +3,13 @@
 import { useState, type FormEvent } from "react";
 import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import type { StripeCardElementOptions } from "@stripe/stripe-js";
-import { CircleAlert, CircleCheck, Lock } from "lucide-react";
+import { CircleAlert, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { createPaymentIntent } from "@/lib/api/payments";
-import type { Id, PaymentIntentInput } from "@/lib/api/types";
+import { startCheckout, syncCheckout } from "@/lib/api/checkout";
+import type { Quote } from "@/lib/api/types";
+import { formatPrice } from "@/lib/pricing";
 
 // Stripe draws the card field inside its own iframe, which can't read our CSS
 // variables, so these mirror the globals.css tokens (foreground,
@@ -26,77 +27,46 @@ const cardOptions: StripeCardElementOptions = {
 };
 
 interface CheckoutFormProps {
-  amount: number;
-  currency: string;
-  description?: string;
+  propertyIds: string[];
+  /** The price the server quoted for these properties. */
+  quote: Quote;
   onCloseModal: () => void;
-  property_id: Id[];
   onPaymentSuccess: () => void;
 }
 
-const CheckoutForm = ({ amount, description, onCloseModal, property_id, onPaymentSuccess }: CheckoutFormProps) => {
+/**
+ * Takes the card and pays for the first year. The server sets the price and
+ * starts the subscription; Stripe.js confirms the payment in the browser.
+ */
+const CheckoutForm = ({ propertyIds, quote, onCloseModal, onPaymentSuccess }: CheckoutFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!stripe || !elements) {
-      console.error("Stripe.js has not loaded yet.");
-      return;
-    }
+    const card = elements?.getElement(CardElement);
+    if (!stripe || !card) return;
 
     setLoading(true);
     setPaymentError(null);
-    setPaymentSuccess(null);
-
     try {
-      const { error } = await stripe.createPaymentMethod({
-        type: "card",
-        card: elements.getElement(CardElement)!,
-      });
-
-      if (error) {
-        console.error("Payment failed:", error);
-        setPaymentError(`Payment failed: ${error.message}`);
-        setPaymentSuccess(null);
-        setLoading(false);
+      const { data } = await startCheckout(propertyIds);
+      const result = await stripe.confirmCardPayment(data.data.clientSecret, { payment_method: { card } });
+      if (result.error) {
+        setPaymentError(`Payment failed: ${result.error.message}`);
         return;
       }
-
-      const formData: PaymentIntentInput = {
-        paymentMethod: "card",
-        amount: amount,
-        currency: "USD",
-        property_id: property_id,
-        description: description || "",
-      };
-      const response = await createPaymentIntent(formData);
-      const clientSecret = response.data?.data?.clientSecret;
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement)!,
-        },
-      });
-
-      if (result.error) {
-        console.error("check error:", result.error.message);
-        setPaymentError(`Payment failed: ${result.error.message}`);
-        setPaymentSuccess(null);
-      } else {
-        if (result.paymentIntent.status === "succeeded") {
-          toast.success("Payment succeeded");
-          setPaymentSuccess("Payment succeeded!");
-          onCloseModal();
-          onPaymentSuccess();
-        }
+      if (result.paymentIntent?.status === "succeeded") {
+        // Activate now rather than waiting for Stripe's webhook.
+        await syncCheckout(data.data.subscriptionId).catch(() => undefined);
+        toast.success("Payment succeeded");
+        onCloseModal();
+        onPaymentSuccess();
       }
-    } catch (e) {
-      console.error("Error during payment process:", e);
-      setPaymentError(`Payment failed: ${(e as Error).message}`);
-      setPaymentSuccess(null);
+    } catch {
+      // The API client has already shown the error.
     } finally {
       setLoading(false);
     }
@@ -107,20 +77,19 @@ const CheckoutForm = ({ amount, description, onCloseModal, property_id, onPaymen
       <div className="rounded-lg border border-input bg-surface px-3 py-3 shadow-xs">
         <CardElement options={cardOptions} />
       </div>
-      <Button type="submit" size="lg" disabled={!stripe || loading} className="w-full">
+      <p className="text-sm text-muted-foreground">
+        {quote.propertyCount === 1 ? "1 property" : `${quote.propertyCount} properties`} at{" "}
+        {formatPrice(quote.unitAmountCents)} per year each. Renews automatically every year; you can cancel the renewal
+        from the property at any time.
+      </p>
+      <Button type="submit" size="lg" disabled={!stripe} loading={loading} className="w-full">
         <Lock aria-hidden="true" />
-        {loading ? "Processing..." : `Pay $${amount / 100}`}
+        {loading ? "Processing..." : `Pay ${formatPrice(quote.totalCents)}`}
       </Button>
       {paymentError && (
         <Alert variant="danger">
           <CircleAlert aria-hidden="true" />
           <p>{paymentError}</p>
-        </Alert>
-      )}
-      {paymentSuccess && (
-        <Alert variant="success">
-          <CircleCheck aria-hidden="true" />
-          <p>{paymentSuccess}</p>
         </Alert>
       )}
     </form>

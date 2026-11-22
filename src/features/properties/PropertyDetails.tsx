@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ChevronDown, EllipsisVertical, Pencil, Plus, StickyNote, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Dialog,
   DialogContent,
@@ -28,9 +29,11 @@ import { FormField } from "@/components/ui/FormField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
+import { cancelRenewal } from "@/lib/api/checkout";
 import { deleteProperties, getProperty } from "@/lib/api/properties";
 import { addNote, deleteNote, updateNote } from "@/lib/api/notes";
 import type { NoteInput, PropertyWithNotes } from "@/lib/api/types";
+import { coverLabel } from "@/features/dashboard/Dashboard";
 import { findCountry, findRegion } from "@/lib/locations";
 import { useIsClient } from "@/lib/useIsClient";
 
@@ -65,6 +68,8 @@ const PropertyDetails = () => {
   const [loaded, setLoaded] = useState(false);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -122,6 +127,20 @@ const PropertyDetails = () => {
     }
   };
 
+  const confirmCancelRenewal = async () => {
+    setCancelLoading(true);
+    try {
+      await cancelRenewal(id);
+      toast.success("Renewal cancelled. The property stays covered until its paid year ends.");
+      setCancelOpen(false);
+      loadProperty(id, setData);
+    } catch {
+      // The API client has already shown the error.
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const handleEditProperty = () => router.push(`/properties/${id}/edit`);
   const handleDeleteProperty = () => {
     deleteProperties([id])
@@ -161,7 +180,7 @@ const PropertyDetails = () => {
   const subscriptionRows: [string, ReactNode][] = [
     ["Subscription Purchased", data ? (data.status === "active" ? "Active Properties" : "Inactive Properties") : "---"],
     ["Expiry Date", data?.subscriptionEndsAt?.split("T")[0] ?? "---"],
-    ["Validity", "1 year"],
+    ["Validity", data?.status === "active" ? `1 year, ${coverLabel(data).toLowerCase()}` : "1 year"],
   ];
   const notes = data?.notes ?? [];
 
@@ -205,6 +224,11 @@ const PropertyDetails = () => {
                   <Pencil aria-hidden="true" />
                   Edit
                 </DropdownMenuItem>
+                {data?.status === "active" && data.autoRenews && (
+                  <DropdownMenuItem variant="danger" onSelect={() => setCancelOpen(true)}>
+                    Cancel renewal
+                  </DropdownMenuItem>
+                )}
                 {data?.status !== "active" && (
                   <DropdownMenuItem variant="danger" onSelect={handleDeleteProperty}>
                     <Trash2 aria-hidden="true" />
@@ -288,6 +312,18 @@ const PropertyDetails = () => {
           <Skeleton className="h-16 w-full" />
         )}
       </section>
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel renewal?"
+        description={`This property stays covered until its paid year ends (${data?.subscriptionEndsAt?.split("T")[0] ?? ""}), then stops. You won't be charged again for it.`}
+        confirmLabel="Cancel renewal"
+        cancelLabel="Keep renewing"
+        variant="danger"
+        loading={cancelLoading}
+        onConfirm={confirmCancelRenewal}
+      />
 
       <Dialog open={noteDialogOpen} onOpenChange={(open) => !open && toggleNoteDialog(false)}>
         <DialogContent>

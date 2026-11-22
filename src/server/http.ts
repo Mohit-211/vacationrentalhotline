@@ -75,6 +75,15 @@ export function handler<Args extends [Request, ...unknown[]]>(fn: (...args: Args
     } catch (error) {
       if (error instanceof HttpError) return errorResponse(error);
       console.error(`[api] ${args[0].method} ${new URL(args[0].url).pathname} failed`, error);
+      const stripeType = (error as { type?: unknown })?.type;
+      if (typeof stripeType === "string" && stripeType.startsWith("Stripe")) {
+        // Stripe refused or failed the request; the details are in the server log.
+        return errorResponse(
+          stripeType === "StripeAuthenticationError"
+            ? new HttpError(503, "PAYMENTS_UNAVAILABLE", "Payments aren't available right now. Please try again later.")
+            : new HttpError(502, "PAYMENT_PROVIDER_ERROR", "Our payment provider couldn't complete this. Please try again."),
+        );
+      }
       return errorResponse(new HttpError(500, "INTERNAL_ERROR", "Something went wrong. Please try again."));
     }
   };

@@ -7,6 +7,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Building2, EllipsisVertical, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataTable, dataTableColumns } from "@/components/ui/DataTable";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import {
@@ -19,12 +20,24 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Spinner } from "@/components/ui/Spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { cancelRenewal, quoteCheckout } from "@/lib/api/checkout";
 import { deleteProperties, listProperties } from "@/lib/api/properties";
-import { getTotalAmount } from "@/lib/api/payments";
-import type { PaymentTotal, Property, PropertyStatus } from "@/lib/api/types";
+import type { Property, PropertyStatus, Quote } from "@/lib/api/types";
 import CheckoutForm from "./CheckoutForm";
 
 const column = dataTableColumns<Property>();
+
+/** "Renews Nov 22, 2027" or "Ends Nov 22, 2027". */
+export const coverLabel = (property: Pick<Property, "subscriptionEndsAt" | "autoRenews">) => {
+  if (!property.subscriptionEndsAt) return "—";
+  const date = new Date(property.subscriptionEndsAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  return `${property.autoRenews ? "Renews" : "Ends"} ${date}`;
+};
 
 const Dashboard = () => {
   const router = useRouter();
@@ -33,9 +46,10 @@ const Dashboard = () => {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY as string);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [propertyId, setPropertyId] = useState<string>();
-  const [paymentTotal, setPaymentTotal] = useState<PaymentTotal>();
+  const [checkout, setCheckout] = useState<{ propertyIds: string[]; quote: Quote }>();
   const [status, setStatus] = useState<PropertyStatus>("inactive");
+  const [renewalToCancel, setRenewalToCancel] = useState<Property>();
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   // Button loading states
   const [payNowLoading, setPayNowLoading] = useState(false);
@@ -80,18 +94,31 @@ const Dashboard = () => {
 
   const startPayment = async (propertyId?: string) => {
     setPayNowLoading(true);
-    setPropertyId(propertyId);
-    const formData = {
-      property_id: selectedIds.length === 0 ? [propertyId as string] : selectedIds,
-    };
+    const propertyIds = selectedIds.length === 0 ? [propertyId as string] : selectedIds;
     try {
-      const res = await getTotalAmount(formData);
-      setPaymentTotal(res?.data?.data);
+      // The server prices the checkout; the card form shows that amount.
+      const res = await quoteCheckout(propertyIds);
+      setCheckout({ propertyIds, quote: res.data.data });
       openCheckout();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // The API client has already shown the error (e.g. too many to buy online).
     } finally {
       setPayNowLoading(false);
+    }
+  };
+
+  const confirmCancelRenewal = async () => {
+    if (!renewalToCancel) return;
+    setCancelLoading(true);
+    try {
+      await cancelRenewal(renewalToCancel.id);
+      toast.success("Renewal cancelled. The property stays covered until its paid year ends.");
+      setRenewalToCancel(undefined);
+      reloadProperties();
+    } catch {
+      // The API client has already shown the error.
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -105,7 +132,6 @@ const Dashboard = () => {
 
   const handleDeleteProperty = async (propertyId?: string) => {
     setDeleteLoading(true);
-    setPropertyId(propertyId);
     const ids = selectedIds.length === 0 ? [propertyId as string] : selectedIds;
     try {
       const res = await deleteProperties(ids);
@@ -140,6 +166,16 @@ const Dashboard = () => {
       meta: { className: "hidden sm:table-cell" },
       cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
     }),
+    ...(status === "active"
+      ? [
+          column.display({
+            id: "cover",
+            header: "Cover",
+            meta: { className: "hidden md:table-cell" },
+            cell: ({ row }) => <span className="whitespace-nowrap text-muted-foreground">{coverLabel(row.original)}</span>,
+          }),
+        ]
+      : []),
     column.display({
       id: "view_detail",
       header: () => <span className="sr-only">Details</span>,
@@ -180,6 +216,11 @@ const Dashboard = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => startPayment(row.original.id)}>Activate</DropdownMenuItem>
                     </>
+                  )}
+                  {status === "active" && row.original.autoRenews && (
+                    <DropdownMenuItem variant="danger" onSelect={() => setRenewalToCancel(row.original)}>
+                      Cancel renewal
+                    </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -280,18 +321,33 @@ const Dashboard = () => {
             <DialogTitle>Payment</DialogTitle>
             <DialogDescription>Enter your card details to activate the selected properties.</DialogDescription>
           </DialogHeader>
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              amount={Number(paymentTotal?.totalAmount) * 100}
-              currency="USD"
-              property_id={selectedIds.length === 0 ? [propertyId as string] : selectedIds}
-              description="Purchase"
-              onCloseModal={closeCheckout}
-              onPaymentSuccess={handlePaymentSuccess}
-            />
-          </Elements>
+          {checkout && (
+            <Elements stripe={stripePromise}>
+              <CheckoutForm
+                propertyIds={checkout.propertyIds}
+                quote={checkout.quote}
+                onCloseModal={closeCheckout}
+                onPaymentSuccess={handlePaymentSuccess}
+              />
+            </Elements>
+          )}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={Boolean(renewalToCancel)}
+        onOpenChange={(open) => !open && setRenewalToCancel(undefined)}
+        title="Cancel renewal?"
+        description={
+          renewalToCancel
+            ? `${renewalToCancel.fullAddress} stays covered until its paid year ends (${coverLabel(renewalToCancel).replace("Renews ", "")}), then stops. You won't be charged again for it.`
+            : ""
+        }
+        confirmLabel="Cancel renewal"
+        cancelLabel="Keep renewing"
+        variant="danger"
+        loading={cancelLoading}
+        onConfirm={confirmCancelRenewal}
+      />
     </div>
   );
 };

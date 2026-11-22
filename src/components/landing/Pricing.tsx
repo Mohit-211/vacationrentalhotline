@@ -1,19 +1,21 @@
 import { CircleCheck, Phone } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section, SectionHeading } from "@/components/ui/Section";
+import { formatPrice, HOTLINE_PHONE, PRICING } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import PurchaseButton from "./PurchaseButton";
 
+// Prices come from src/lib/pricing.ts, which checkout charges.
 const plans = [
   {
     name: "Single Property",
-    price: "$250",
+    price: formatPrice(PRICING.singlePropertyCents),
     features: ["Calls answered 24/7", "365 days per year", "Text to owner if a call received"],
     featured: false,
   },
   {
-    name: "2-5 Properties",
-    price: "$200",
+    name: `2-${PRICING.maxPropertiesOnline} Properties`,
+    price: formatPrice(PRICING.multiPropertyCents),
     features: [
       "Calls answered 24/7",
       "365 days per year",
@@ -61,14 +63,14 @@ const Pricing = () => {
             </div>
           ))}
           <div className="flex flex-col justify-center rounded-2xl bg-linear-to-br from-primary-strong to-primary-stronger p-8 text-on-strong shadow-lg">
-            <h3 className="text-lg font-bold text-on-strong">5 Properties or More</h3>
+            <h3 className="text-lg font-bold text-on-strong">{PRICING.maxPropertiesOnline + 1} Properties or More</h3>
             <p className="mt-3">Please call us for pricing</p>
             <a
-              href="tel:+18446468546"
+              href={HOTLINE_PHONE.href}
               className="mt-6 inline-flex items-center gap-3 font-heading text-2xl font-extrabold tracking-tight whitespace-nowrap underline-offset-4 hover:underline"
             >
               <Phone className="size-6 shrink-0" aria-hidden="true" />
-              (844) 6-HOTLINE
+              {HOTLINE_PHONE.display}
             </a>
           </div>
         </div>

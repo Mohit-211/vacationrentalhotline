@@ -1,12 +1,12 @@
 import "server-only";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
-import mysql from "mysql2/promise";
+import mysql, { type Pool } from "mysql2/promise";
 import { serverEnv } from "@/server/env";
 import * as schema from "./schema";
 
 export type Database = MySql2Database<typeof schema>;
 
-function createDatabase(): Database {
+function createDatabase(): { database: Database; pool: Pool } {
   const pool = mysql.createPool({
     uri: serverEnv().DATABASE_URL,
     connectionLimit: 10,
@@ -20,19 +20,19 @@ function createDatabase(): Database {
   pool.pool.on("connection", (connection) => {
     connection.query("SET time_zone = '+00:00'");
   });
-  return drizzle({ client: pool, schema, mode: "default" });
+  return { database: drizzle({ client: pool, schema, mode: "default" }), pool };
 }
 
 // One pool per server process. In development, keep it on globalThis so hot
 // reloads reuse it instead of opening a new pool on every change.
-const globalForDb = globalThis as typeof globalThis & { __vrhDatabase?: Database };
+const globalForDb = globalThis as typeof globalThis & { __vrhDb?: { database: Database; pool: Pool } };
+
+const shared = () => (globalForDb.__vrhDb ??= createDatabase());
 
 /** The shared database client. The pool is created on first use. */
-export function db(): Database {
-  if (!globalForDb.__vrhDatabase) {
-    globalForDb.__vrhDatabase = createDatabase();
-  }
-  return globalForDb.__vrhDatabase;
-}
+export const db = (): Database => shared().database;
+
+/** The connection pool itself, for the rare query that needs one connection (such as a named lock). */
+export const pool = (): Pool => shared().pool;
 
 export { schema };

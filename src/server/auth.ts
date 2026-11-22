@@ -19,7 +19,8 @@ import {
 import { sendEmailInBackground } from "@/server/email/send";
 import { serverEnv } from "@/server/env";
 
-const DAY = 60 * 60 * 24;
+/** Accounts not verified within this time are removed (src/server/jobs). */
+export const UNVERIFIED_ACCOUNT_LIFETIME_SECONDS = 12 * 60 * 60;
 
 /**
  * Reads the claims of an email-verification token (a JWT Better Auth has
@@ -90,7 +91,8 @@ function createAuth() {
       // Signing in before verifying sends a fresh link.
       sendOnSignIn: true,
       autoSignInAfterVerification: false,
-      expiresIn: DAY,
+      // Matches the scheduled job that removes accounts left unverified for 12 hours.
+      expiresIn: UNVERIFIED_ACCOUNT_LIFETIME_SECONDS,
       sendVerificationEmail: async ({ user, token }) => {
         // Both flows use this hook; an email change carries the new address
         // in `updateTo` and gets its own page and wording.

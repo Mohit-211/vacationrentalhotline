@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, gt, inArray, isNull, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, not, or, type SQL } from "drizzle-orm";
 import { formatAddress } from "@/lib/locations";
 import type { PropertyValues } from "@/lib/schemas/property";
 import { db } from "@/server/db";
 import { properties, propertyNotes } from "@/server/db/schema";
+import { HttpError } from "@/server/http";
 
 export type PropertyRow = typeof properties.$inferSelect;
 export type NoteRow = typeof propertyNotes.$inferSelect;
@@ -12,8 +13,22 @@ export type NoteRow = typeof propertyNotes.$inferSelect;
 export type PropertyStatus = "active" | "inactive";
 export const PROPERTY_STATUSES = ["active", "inactive"] as const satisfies readonly PropertyStatus[];
 
-export const propertyStatus = (row: Pick<PropertyRow, "subscriptionEndsAt">, now = new Date()): PropertyStatus =>
-  row.subscriptionEndsAt && row.subscriptionEndsAt > now ? "active" : "inactive";
+/**
+ * How long a renewing property stays active past its paid-through date
+ * while Stripe charges (and, if needed, retries) the renewal.
+ */
+export const RENEWAL_GRACE_DAYS = 14;
+const graceMs = RENEWAL_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+export function propertyStatus(
+  row: Pick<PropertyRow, "subscriptionEndsAt" | "autoRenews">,
+  now = new Date(),
+): PropertyStatus {
+  const end = row.subscriptionEndsAt?.getTime();
+  if (end === undefined) return "inactive";
+  if (end > now.getTime()) return "active";
+  return row.autoRenews && end + graceMs > now.getTime() ? "active" : "inactive";
+}
 
 export function serializeProperty(row: PropertyRow, now = new Date()) {
   return {
@@ -31,7 +46,10 @@ export function serializeProperty(row: PropertyRow, now = new Date()) {
     postalCode: row.postalCode,
     fullAddress: formatAddress(row),
     status: propertyStatus(row, now),
+    /** The end of the period paid for. */
     subscriptionEndsAt: row.subscriptionEndsAt?.toISOString() ?? null,
+    /** Renews automatically on subscriptionEndsAt; false once renewal is cancelled. */
+    autoRenews: row.autoRenews,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -75,10 +93,13 @@ const toColumns = (values: PropertyValues) => ({
   postalCode: values.postalCode,
 });
 
+/** The SQL form of propertyStatus. */
 export function statusCondition(status: PropertyStatus, now = new Date()): SQL {
-  return status === "active"
-    ? gt(properties.subscriptionEndsAt, now)
-    : or(isNull(properties.subscriptionEndsAt), lte(properties.subscriptionEndsAt, now))!;
+  const active = or(
+    gt(properties.subscriptionEndsAt, now),
+    and(eq(properties.autoRenews, true), gt(properties.subscriptionEndsAt, new Date(now.getTime() - graceMs))),
+  )!;
+  return status === "active" ? active : or(isNull(properties.subscriptionEndsAt), not(active))!;
 }
 
 /** A user's properties, newest first, optionally only active or inactive ones. */
@@ -124,12 +145,23 @@ export async function updateProperty(propertyId: string, values: PropertyValues)
   return row!;
 }
 
-/** Deletes those of the given properties that belong to the user; returns how many. */
+/**
+ * Deletes those of the given properties that belong to the user and aren't
+ * covered; returns how many. A covered property must stop renewing and run
+ * out first, so nothing is deleted while it's still being paid for.
+ */
 export async function deleteUserProperties(userId: string, propertyIds: string[]): Promise<number> {
   if (propertyIds.length === 0) return 0;
-  const [result] = await db()
-    .delete(properties)
-    .where(and(eq(properties.userId, userId), inArray(properties.id, propertyIds)));
+  const owned = and(eq(properties.userId, userId), inArray(properties.id, propertyIds));
+  const [covered] = await db().select().from(properties).where(and(owned, statusCondition("active"))).limit(1);
+  if (covered) {
+    throw new HttpError(
+      409,
+      "PROPERTY_COVERED",
+      `${formatAddress(covered)} is covered until ${covered.subscriptionEndsAt?.toISOString().slice(0, 10)}. Cancel its renewal; you can delete it once the cover ends.`,
+    );
+  }
+  const [result] = await db().delete(properties).where(owned);
   return result.affectedRows;
 }
 

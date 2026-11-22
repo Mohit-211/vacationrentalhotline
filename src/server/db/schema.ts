@@ -25,8 +25,9 @@ import {
     and every connection sets `time_zone = '+00:00'` so database defaults are
     UTC as well.
   - There are no soft deletes. Rows are deleted for real and the foreign keys
-    decide what happens to their children. Payments keep a copy of who paid
-    and which address was covered, so the record survives those deletes.
+    decide what happens to their children. Subscriptions and payments keep a
+    copy of who paid and which address was covered, so the record survives
+    those deletes.
 
   This file is also read by drizzle-kit, so it must not import app modules.
 */
@@ -196,10 +197,18 @@ export const properties = mysqlTable(
     countryCode: char("country_code", { length: 2 }).notNull(),
     postalCode: varchar("postal_code", { length: 10 }).notNull(),
     /**
-     * End of the paid period. Null until the first payment; the property is
-     * active while this is in the future. Kept in step with payment_items.
+     * The end of the period paid for: null until the first payment. Kept in
+     * step with subscription payments by the Stripe webhook.
      */
     subscriptionEndsAt: utcDateTime("subscription_ends_at"),
+    /**
+     * Whether a live Stripe subscription will renew this property. While it
+     * does, a property stays active for a grace period after
+     * subscriptionEndsAt, as Stripe retries a failed renewal.
+     */
+    autoRenews: boolean("auto_renews").notNull().default(false),
+    /** When the "your cover has ended" email went out; cleared when cover is extended. */
+    expiryNoticeSentAt: utcDateTime("expiry_notice_sent_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -227,26 +236,89 @@ export const propertyNotes = mysqlTable(
 );
 
 // ---------------------------------------------------------------------------
-// Payments
+// Subscriptions and payments (Stripe Billing)
 // ---------------------------------------------------------------------------
 
-export const PAYMENT_STATUSES = ["pending", "succeeded", "failed", "canceled", "refunded"] as const;
+/**
+ * One Stripe subscription: the properties bought in one checkout, renewed
+ * together once a year. Mirrors the Stripe object; Stripe is the source of
+ * truth and the webhook keeps this row in step.
+ */
+export const subscriptions = mysqlTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().$defaultFn(newId),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }).notNull(),
+    /** Stripe's status: incomplete, active, past_due, canceled, unpaid, ... */
+    status: varchar("status", { length: 32 }).notNull(),
+    /** True when the whole subscription stops at the end of the current period. */
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    currentPeriodEnd: utcDateTime("current_period_end"),
+    canceledAt: utcDateTime("canceled_at"),
+    endedAt: utcDateTime("ended_at"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("subscriptions_stripe_subscription_id_unique").on(table.stripeSubscriptionId),
+    index("subscriptions_user_id_idx").on(table.userId),
+    index("subscriptions_status_idx").on(table.status),
+  ],
+);
+
+/** One property in a subscription (one Stripe subscription item), with its yearly price. */
+export const subscriptionItems = mysqlTable(
+  "subscription_items",
+  {
+    id: uuid("id").primaryKey().$defaultFn(newId),
+    subscriptionId: uuid("subscription_id")
+      .notNull()
+      .references(() => subscriptions.id, { onDelete: "cascade" }),
+    /** Null if the property has since been deleted; the label keeps the address. */
+    propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
+    propertyLabel: varchar("property_label", { length: 500 }).notNull(),
+    stripeSubscriptionItemId: varchar("stripe_subscription_item_id", { length: 255 }).notNull(),
+    /** Price per year, in cents. */
+    unitAmountCents: int("unit_amount_cents", { unsigned: true }).notNull(),
+    currency: char("currency", { length: 3 }).notNull().default("usd"),
+    /** When renewal was stopped; null while it renews. */
+    canceledAt: utcDateTime("canceled_at"),
+    /** Who stopped it: the customer, or a staff member. */
+    canceledById: uuid("canceled_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("subscription_items_stripe_item_unique").on(table.stripeSubscriptionItemId),
+    index("subscription_items_subscription_id_idx").on(table.subscriptionId),
+    index("subscription_items_property_id_idx").on(table.propertyId),
+  ],
+);
+
+export const PAYMENT_STATUSES = ["paid", "failed", "partially_refunded", "refunded"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-/** One checkout: a single Stripe PaymentIntent covering one or more properties. */
+/** One Stripe invoice: the first payment of a subscription, or a yearly renewal. */
 export const payments = mysqlTable(
   "payments",
   {
     id: uuid("id").primaryKey().$defaultFn(newId),
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    /** Copies of the payer's name and email at checkout time. */
+    subscriptionId: uuid("subscription_id").references(() => subscriptions.id, { onDelete: "set null" }),
+    stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 }).notNull(),
+    /** Found when a refund needs it; Stripe keeps it on the invoice's payments. */
+    stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+    /** "subscription_create" for a first payment, "subscription_cycle" for a renewal. */
+    billingReason: varchar("billing_reason", { length: 40 }),
+    /** Copies of the payer's name and email at payment time. */
     payerName: varchar("payer_name", { length: 150 }).notNull(),
     payerEmail: varchar("payer_email", { length: 255 }).notNull(),
-    stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }).notNull(),
-    /** Total charged, in cents. */
     amountCents: int("amount_cents", { unsigned: true }).notNull(),
+    refundedCents: int("refunded_cents", { unsigned: true }).notNull().default(0),
     currency: char("currency", { length: 3 }).notNull().default("usd"),
-    status: mysqlEnum("status", PAYMENT_STATUSES).notNull().default("pending"),
+    status: mysqlEnum("status", PAYMENT_STATUSES).notNull(),
+    /** Stripe's page for the invoice and its receipt. */
     receiptUrl: varchar("receipt_url", { length: 2048 }),
     paidAt: utcDateTime("paid_at"),
     receiptEmailSentAt: utcDateTime("receipt_email_sent_at"),
@@ -254,13 +326,14 @@ export const payments = mysqlTable(
     updatedAt: updatedAt(),
   },
   (table) => [
-    uniqueIndex("payments_stripe_payment_intent_id_unique").on(table.stripePaymentIntentId),
+    uniqueIndex("payments_stripe_invoice_id_unique").on(table.stripeInvoiceId),
     index("payments_user_id_created_at_idx").on(table.userId, table.createdAt),
+    index("payments_subscription_id_idx").on(table.subscriptionId),
     index("payments_status_paid_at_idx").on(table.status, table.paidAt),
   ],
 );
 
-/** The properties a payment covers, with the price and the period each one bought. */
+/** The properties a payment covered, with each one's amount and the period it bought. */
 export const paymentItems = mysqlTable(
   "payment_items",
   {
@@ -268,13 +341,11 @@ export const paymentItems = mysqlTable(
     paymentId: uuid("payment_id")
       .notNull()
       .references(() => payments.id, { onDelete: "cascade" }),
-    /** Null if the property has since been deleted; the label keeps the address. */
     propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
     propertyLabel: varchar("property_label", { length: 500 }).notNull(),
     amountCents: int("amount_cents", { unsigned: true }).notNull(),
-    /** The paid period; set when the payment succeeds. */
-    subscriptionStartsAt: utcDateTime("subscription_starts_at"),
-    subscriptionEndsAt: utcDateTime("subscription_ends_at"),
+    periodStart: utcDateTime("period_start").notNull(),
+    periodEnd: utcDateTime("period_end").notNull(),
     createdAt: createdAt(),
   },
   (table) => [

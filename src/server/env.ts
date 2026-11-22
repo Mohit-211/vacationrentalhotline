@@ -27,6 +27,16 @@ const serverEnvSchema = z
     SMTP_USERNAME: optional,
     SMTP_PASSWORD: optional,
     EMAIL_FROM: z.string().trim().min(1).default("Vacation Rental Hotline <no-reply@vacationrentalhotline.com>"),
+    /** Gets a copy of staff notices, such as a customer's cover ending. */
+    STAFF_EMAIL: z.email().default("info@vacationrentalhotline.com"),
+    /** Stripe secret key (sk_live_... or sk_test_...); checkout needs it. */
+    STRIPE_SECRET_KEY: optional,
+    /** Signing secret of the Stripe webhook endpoint (whsec_...). */
+    STRIPE_WEBHOOK_SECRET: optional,
+    /** "off" stops this process running the scheduled jobs. */
+    SCHEDULED_JOBS: z.enum(["on", "off"]).default("on"),
+    /** Lets POST /api/jobs/run trigger the jobs by hand; unset turns that off. */
+    JOBS_SECRET: optional.pipe(z.string().min(32, "JOBS_SECRET must be at least 32 characters").optional()),
   })
   .transform((env) => ({
     ...env,
