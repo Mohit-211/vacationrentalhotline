@@ -15,8 +15,8 @@ import ChangeEmailForm from "./ChangeEmailForm";
 const tabTriggerClasses =
   "w-full justify-start gap-3 px-3 py-2.5 data-[state=active]:bg-primary-soft data-[state=active]:text-primary-stronger data-[state=active]:shadow-none [&_svg]:size-4";
 
-const Profile = () => {
-  const [value, setValue] = useState("edit");
+const Account = () => {
+  const [tab, setTab] = useState("edit");
   const isClient = useIsClient();
   const [isPasswordChanged, setIsPasswordChanged] = useState(false);
   const [isEmailChanged, setIsEmailChanged] = useState(false);
@@ -33,13 +33,13 @@ const Profile = () => {
       });
   }, []);
 
-  const handleValueChange = (next: string) => {
-    setValue(next);
+  const handleTabChange = (next: string) => {
+    setTab(next);
     if (next !== "change_email") setIsPasswordChanged(false);
     setIsEmailChanged(false);
   };
 
-  const handleValueChangeEdit = () => handleValueChange("edit");
+  const showProfileTab = () => handleTabChange("edit");
 
   if (isPasswordChanged) {
     return (
@@ -58,15 +58,15 @@ const Profile = () => {
         subject="Email Change Request Submitted Successfully!"
         text="Your request to change your email address has been submitted. A verification email has been sent to your new email address. Please check your inbox and verify your new email to complete the update. If you have not requested an email change, you can go back to your profile to view your current details."
         buttonText="Go to Profile"
-        onButtonClick={handleValueChangeEdit}
+        onButtonClick={showProfileTab}
       />
     );
   }
 
   return (
     <Tabs
-      value={value}
-      onValueChange={handleValueChange}
+      value={tab}
+      onValueChange={handleTabChange}
       orientation="vertical"
       className="grid items-start gap-6 lg:grid-cols-[18rem_1fr]"
     >
@@ -113,4 +113,4 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+export default Account;

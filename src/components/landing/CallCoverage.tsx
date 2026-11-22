@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Section4image from "@public/assets/section4image.png";
+import service247 from "@public/assets/service-24-7.png";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import PurchaseButton from "./PurchaseButton";
@@ -9,7 +9,7 @@ const CallCoverage = () => {
     <Section className="bg-linear-to-br from-primary-strong to-primary-stronger">
       <Container className="grid items-center gap-12 lg:grid-cols-[2fr_3fr]">
         <Image
-          src={Section4image}
+          src={service247}
           alt=""
           sizes="(min-width: 1024px) 24rem, 80vw"
           className="mx-auto w-full max-w-sm rounded-3xl shadow-xl"

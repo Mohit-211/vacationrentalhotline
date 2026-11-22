@@ -6,7 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import ContactImage from "@public/assets/contactus.png";
+import supportAgent from "@public/assets/support-agent.png";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { FormField } from "@/components/ui/FormField";
@@ -40,7 +40,7 @@ const Contact = () => {
     formState: { errors },
   } = useForm<ContactValues>({ resolver: zodResolver(schema), mode: "onChange", defaultValues: emptyForm });
 
-  const onFinish = (values: ContactValues) => {
+  const onSubmit = (values: ContactValues) => {
     setLoading(true);
     submitContactForm(values)
       .then(() => {
@@ -56,13 +56,13 @@ const Contact = () => {
   };
 
   return (
-    <Section id="contact-us" className="bg-surface">
+    <Section id="contact" className="bg-surface">
       <Container>
         <SectionHeading align="center" title="Contact Us" />
         <div className="mt-12 grid items-center gap-12 lg:grid-cols-[3fr_2fr]">
           <form
             noValidate
-            onSubmit={handleSubmit(onFinish)}
+            onSubmit={handleSubmit(onSubmit)}
             className="grid gap-5 rounded-2xl border border-border bg-canvas p-6 shadow-sm sm:grid-cols-2 sm:p-8"
           >
             <FormField id="contact_name" label="Your Name" required error={errors.name?.message}>
@@ -108,7 +108,7 @@ const Contact = () => {
             </div>
           </form>
           <Image
-            src={ContactImage}
+            src={supportAgent}
             alt="Contact Us"
             sizes="(min-width: 1024px) 26rem, 80vw"
             className="mx-auto hidden w-full max-w-sm lg:block"

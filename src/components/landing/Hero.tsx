@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Check, Phone } from "lucide-react";
-import BannerHomeImage from "@public/assets/BannerHomeImage.png";
+import heroHouse from "@public/assets/hero-house.png";
 import { Container } from "@/components/ui/Container";
 import PurchaseButton from "./PurchaseButton";
 
@@ -8,7 +8,7 @@ const highlights = ["Calls answered 24/7", "Text to owner if a call received", "
 
 const Hero = () => {
   return (
-    <section id="banner-section" className="relative overflow-hidden bg-linear-to-b from-primary-soft to-canvas">
+    <section id="home" className="relative overflow-hidden bg-linear-to-b from-primary-soft to-canvas">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-48 -right-40 size-[36rem] rounded-full bg-primary/15 blur-3xl"
@@ -55,7 +55,7 @@ const Hero = () => {
             className="absolute inset-x-4 top-10 bottom-0 rounded-[2.5rem] bg-surface/80 shadow-xl ring-1 ring-border sm:inset-x-10"
           />
           <Image
-            src={BannerHomeImage}
+            src={heroHouse}
             alt=""
             priority
             sizes="(min-width: 1024px) 34rem, 90vw"

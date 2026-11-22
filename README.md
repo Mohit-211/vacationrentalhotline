@@ -1,34 +1,59 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Vacation Rental Hotline — web app
 
-## Getting Started
+The website and owner portal for Vacation Rental Hotline: the public site, sign-up and login, and the dashboard
+where owners manage their properties, notes and subscriptions.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router), React 19 and TypeScript (strict)
+- Tailwind CSS 4, with every design token in `src/app/globals.css`
+- Radix UI primitives in shadcn/ui-style components (`src/components/ui`), react-hook-form + zod for forms,
+  TanStack Table, sonner for toasts, lucide-react for icons
+- Stripe Elements for payments and axios for the API
+
+## Getting started
+
+Requires Node.js 24.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`NEXT_PUBLIC_STRIPE_PUBLIC_KEY` (the Stripe publishable key) is read from `.env`. The API base URL is set in
+`src/lib/api/client.ts`.
 
-You can start editing the page by modifying `src/app/page.js`. The page auto-updates as you edit the file.
+| Script          | What it does                                  |
+| --------------- | --------------------------------------------- |
+| `npm run dev`   | Development server                            |
+| `npm run build` | Production build, including the type check   |
+| `npm run start` | Serves the production build                   |
+| `npm run lint`  | ESLint (Next.js recommended rules)            |
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Area      | Routes                                                                                             |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| Marketing | `/`, `/privacy-policy`, `/terms`, `/cookie-policy`                                                  |
+| Auth      | `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/verify-email`, `/verify-email-change` |
+| Owner app | `/dashboard`, `/properties/new`, `/properties/[id]`, `/properties/[id]/edit`, `/account`, `/account/password` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Older URLs (such as `/addnewproperty` or `/email-verify`) redirect permanently to these; see `next.config.ts`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+```
+src/
+  app/
+    (marketing)/   public pages: home and legal
+    (auth)/        sign-in, sign-up, password and email-verification screens
+    (app)/         signed-in pages: dashboard, properties, account
+    globals.css    design tokens and base styles
+  components/
+    ui/            shared building blocks (Button, Dialog, DataTable, ...)
+    layout/        header, footer and cookie banner
+    landing/       home-page sections
+  features/        screens grouped by area: account, auth, dashboard, legal, properties
+  lib/             API client, session cookie and validation helpers
+public/            logos, favicon, images and the CSV import sample
+```

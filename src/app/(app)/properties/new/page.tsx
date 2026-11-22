@@ -1,5 +1,5 @@
 import PropertyForm from "@/features/properties/PropertyForm";
 
-export default function AddNewPropertyPage() {
+export default function NewPropertyPage() {
   return <PropertyForm />;
 }

@@ -26,7 +26,7 @@ interface MappedField {
   required?: boolean;
 }
 
-const selectedFields: MappedField[] = [
+const importFields: MappedField[] = [
   { name: "property_owner_name", label: "Rental Property Owner Name", required: true },
   { name: "property_owner_email_1", label: "Email 1", required: true },
   { name: "property_owner_email_2", label: "Email 2" },
@@ -49,13 +49,13 @@ const CsvImport = () => {
   const [data, setData] = useState<CsvRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({});
-  const [showBtn, setShowBtn] = useState(false);
+  const [fileChosen, setFileChosen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [exampleOpen, setExampleOpen] = useState(false);
   const router = useRouter();
 
-  const handleFileUpload = (file: File) => {
-    setShowBtn(true);
+  const parseFile = (file: File) => {
+    setFileChosen(true);
     if (file) {
       Papa.parse<CsvRow>(file, {
         header: true,
@@ -84,7 +84,7 @@ const CsvImport = () => {
 
   const generateInitialMappings = (keys: string[]) => {
     const initialMappings: Record<string, string> = {};
-    selectedFields.forEach((field) => {
+    importFields.forEach((field) => {
       initialMappings[field.name] = keys.includes(field.name) ? field.name : "";
     });
     return initialMappings;
@@ -102,10 +102,10 @@ const CsvImport = () => {
     return field ? row[field] : "";
   };
 
-  const handleGenerateAndSubmit = () => {
+  const handleImport = () => {
     const mappedData = data.map((row) => {
       const newRow: PropertyInput = {};
-      selectedFields.forEach((field) => {
+      importFields.forEach((field) => {
         newRow[field.name] = getFieldData(row, field.name);
       });
       return newRow;
@@ -130,17 +130,17 @@ const CsvImport = () => {
   };
 
   const columns = data.length > 0 ? Object.keys(data[0]) : [];
-  const missingRequired = selectedFields.some((field) => field.required && !fieldMappings[field.name]);
+  const missingRequired = importFields.some((field) => field.required && !fieldMappings[field.name]);
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[2fr_3fr]">
       <aside className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <CsvInstructions />
-        <Button variant="outline" className="mt-6" onClick={() => setDrawerVisible(true)}>
+        <Button variant="outline" className="mt-6" onClick={() => setExampleOpen(true)}>
           <BookOpen aria-hidden="true" />
           View Mapping Example for CSV Upload
         </Button>
-        <Sheet open={drawerVisible} onOpenChange={setDrawerVisible}>
+        <Sheet open={exampleOpen} onOpenChange={setExampleOpen}>
           <SheetContent className="max-w-md">
             <SheetHeader>
               <SheetTitle>Mapping Example Steps</SheetTitle>
@@ -151,10 +151,10 @@ const CsvImport = () => {
       </aside>
 
       <div className="space-y-6">
-        <CsvDropzone handleFileUpload={handleFileUpload} setData={setData} setShowBtn={setShowBtn} setError={setError} />
-        {!showBtn && (
+        <CsvDropzone onFile={parseFile} setData={setData} setFileChosen={setFileChosen} setError={setError} />
+        {!fileChosen && (
           <Button asChild variant="outline">
-            <a href="/Propertysample.csv" download>
+            <a href="/property-import-sample.csv" download>
               <Download aria-hidden="true" />
               Download Sample CSV
             </a>
@@ -174,7 +174,7 @@ const CsvImport = () => {
               Pick the CSV column that holds each field. Fields marked * are required.
             </p>
             <div className="mt-6 grid gap-5 sm:grid-cols-2">
-              {selectedFields.map((field) => (
+              {importFields.map((field) => (
                 <div key={field.name} className="grid gap-1.5">
                   <Label htmlFor={`csv_${field.name}`}>
                     {field.required && (
@@ -206,7 +206,7 @@ const CsvImport = () => {
             <Button
               size="lg"
               className="mt-6"
-              onClick={handleGenerateAndSubmit}
+              onClick={handleImport}
               disabled={data.length === 0 || missingRequired}
             >
               Submit

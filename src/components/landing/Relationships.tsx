@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Section3image from "@public/assets/home3.png";
+import beachHouse from "@public/assets/beach-house.png";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 
@@ -16,7 +16,7 @@ const Relationships = () => {
             real live person to answer any neighbor calls about your property 24/7 365 days a year.
           </p>
         </div>
-        <Image src={Section3image} alt="" sizes="(min-width: 1024px) 34rem, 90vw" className="mx-auto w-full max-w-lg" />
+        <Image src={beachHouse} alt="" sizes="(min-width: 1024px) 34rem, 90vw" className="mx-auto w-full max-w-lg" />
       </Container>
     </Section>
   );

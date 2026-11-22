@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { BellRing, FileText, MoonStar, PhoneCall, ShieldCheck } from "lucide-react";
-import Section5image from "@public/assets/whatwedo.png";
+import servicesCollage from "@public/assets/services-collage.png";
 import { Container } from "@/components/ui/Container";
 import { Section, SectionHeading } from "@/components/ui/Section";
 
@@ -45,7 +45,7 @@ const WhatWeDo = () => {
           </ul>
         </div>
         <Image
-          src={Section5image}
+          src={servicesCollage}
           alt="Collage of vacation rental homes, a hand holding house keys, and a hotline representative wearing a headset"
           sizes="(min-width: 1024px) 28rem, 90vw"
           className="mx-auto w-full max-w-md"

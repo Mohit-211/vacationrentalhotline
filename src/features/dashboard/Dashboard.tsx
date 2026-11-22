@@ -28,14 +28,14 @@ const column = dataTableColumns<Property>();
 
 const Dashboard = () => {
   const router = useRouter();
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Property[]>([]);
-  const [showModal, setShowModal] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY as string);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<Id[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Id[]>([]);
   const [propertyId, setPropertyId] = useState<Id>();
-  const [propertyAmount, setPropertyAmount] = useState<PaymentTotal>();
-  const [tabKey, setTabKey] = useState<SubscriptionStatus>("DEACTIVATE");
+  const [paymentTotal, setPaymentTotal] = useState<PaymentTotal>();
+  const [status, setStatus] = useState<SubscriptionStatus>("DEACTIVATE");
 
   // Button loading states
   const [payNowLoading, setPayNowLoading] = useState(false);
@@ -49,8 +49,8 @@ const Dashboard = () => {
     startNavigation(() => router.push(path));
   };
   const isNavigatingTo = (path: string) => isNavigating && navigatingTo === path;
-  const addNewLoading = isNavigatingTo("/addnewproperty");
-  const viewDetailLoading = (id: Id) => isNavigatingTo(`/property-detail/${id}`);
+  const addNewLoading = isNavigatingTo("/properties/new");
+  const viewDetailLoading = (id: Id) => isNavigatingTo(`/properties/${id}`);
 
   const fetchProperties = (type: SubscriptionStatus) => {
     getPropertiesByType({ type })
@@ -61,33 +61,33 @@ const Dashboard = () => {
         // The axios interceptor already shows an error message.
       })
       .finally(() => {
-        setInitialLoading(false);
+        setLoading(false);
       });
   };
 
-  const handleGetProperty = (initialLoad = false) => {
-    if (initialLoad) setInitialLoading(true);
-    fetchProperties(tabKey);
+  const reloadProperties = (initialLoad = false) => {
+    if (initialLoad) setLoading(true);
+    fetchProperties(status);
   };
 
   useEffect(() => {
-    fetchProperties(tabKey);
-  }, [tabKey]);
+    fetchProperties(status);
+  }, [status]);
 
   const handleEditProperty = (id: Id) => {
-    router.push(`/addnewproperty/${id}`);
+    router.push(`/properties/${id}/edit`);
   };
 
-  const GetAmount = async (propertyId?: Id) => {
+  const startPayment = async (propertyId?: Id) => {
     setPayNowLoading(true);
     setPropertyId(propertyId);
     const formData = {
-      property_id: selectedRowKeys.length === 0 ? [propertyId as Id] : selectedRowKeys,
+      property_id: selectedIds.length === 0 ? [propertyId as Id] : selectedIds,
     };
     try {
       const res = await getTotalAmount(formData);
-      setPropertyAmount(res?.data?.data);
-      handlePurchaseClick();
+      setPaymentTotal(res?.data?.data);
+      openCheckout();
     } catch (error) {
       console.log(error);
     } finally {
@@ -95,24 +95,24 @@ const Dashboard = () => {
     }
   };
 
-  const handlePurchaseClick = () => {
-    setShowModal(true);
+  const openCheckout = () => {
+    setCheckoutOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
+  const closeCheckout = () => {
+    setCheckoutOpen(false);
   };
 
   const handleDeleteProperty = async (propertyId?: Id) => {
     setDeleteLoading(true);
     setPropertyId(propertyId);
     const formData = {
-      property_ids: selectedRowKeys.length === 0 ? [propertyId as Id] : selectedRowKeys,
+      property_ids: selectedIds.length === 0 ? [propertyId as Id] : selectedIds,
     };
     try {
       const res = await deleteProperties(formData);
       toast.success(res?.data?.message || "Property deleted.");
-      handleGetProperty(true);
+      reloadProperties(true);
     } catch (error) {
       console.log(error);
     } finally {
@@ -121,7 +121,7 @@ const Dashboard = () => {
   };
 
   const handleViewDetail = (id: Id) => {
-    navigateTo(`/property-detail/${id}`);
+    navigateTo(`/properties/${id}`);
   };
 
   const columns = column.columns([
@@ -155,7 +155,7 @@ const Dashboard = () => {
         </Button>
       ),
     }),
-    ...(selectedRowKeys.length === 0
+    ...(selectedIds.length === 0
       ? [
           column.display({
             id: "action",
@@ -173,12 +173,12 @@ const Dashboard = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onSelect={() => handleEditProperty(row.original.id)}>Edit</DropdownMenuItem>
-                  {tabKey !== "ACTIVATE" && (
+                  {status !== "ACTIVATE" && (
                     <>
                       <DropdownMenuItem variant="danger" onSelect={() => handleDeleteProperty(row.original.id)}>
                         Delete
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => GetAmount(row.original.id)}>Activate</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => startPayment(row.original.id)}>Activate</DropdownMenuItem>
                     </>
                   )}
                 </DropdownMenuContent>
@@ -190,15 +190,15 @@ const Dashboard = () => {
   ]);
 
   const handlePaymentSuccess = () => {
-    handleGetProperty(true);
+    reloadProperties(true);
   };
 
   const empty = (
     <EmptyState
       icon={<Building2 aria-hidden="true" />}
-      title={tabKey === "ACTIVATE" ? "No active properties" : "No inactive properties"}
+      title={status === "ACTIVATE" ? "No active properties" : "No inactive properties"}
       description={
-        tabKey === "ACTIVATE"
+        status === "ACTIVATE"
           ? "Properties appear here once their subscription is paid."
           : "Add a property to get started."
       }
@@ -211,24 +211,24 @@ const Dashboard = () => {
         title="My Properties"
         actions={
           <>
-            {tabKey !== "ACTIVATE" && (
-              <Button variant="secondary" disabled={selectedRowKeys.length === 0} onClick={() => GetAmount()}>
+            {status !== "ACTIVATE" && (
+              <Button variant="secondary" disabled={selectedIds.length === 0} onClick={() => startPayment()}>
                 {payNowLoading && <Spinner label="Loading amount" />}
                 Pay Now
               </Button>
             )}
-            {tabKey !== "ACTIVATE" && (
+            {status !== "ACTIVATE" && (
               <Button
                 variant="outline"
                 className="text-danger"
                 onClick={() => handleDeleteProperty()}
-                disabled={selectedRowKeys.length === 0}
+                disabled={selectedIds.length === 0}
               >
                 {deleteLoading && <Spinner label="Deleting" />}
                 Delete
               </Button>
             )}
-            <Button onClick={() => navigateTo("/addnewproperty")}>
+            <Button onClick={() => navigateTo("/properties/new")}>
               {addNewLoading ? <Spinner label="Opening" /> : <Plus aria-hidden="true" />}
               Add New Properties
             </Button>
@@ -236,11 +236,11 @@ const Dashboard = () => {
         }
       />
       <Tabs
-        value={tabKey}
+        value={status}
         onValueChange={(key) => {
-          setTabKey(key as SubscriptionStatus);
-          setSelectedRowKeys([]); // Clear selected rows
-          setInitialLoading(true);
+          setStatus(key as SubscriptionStatus);
+          setSelectedIds([]); // Clear selected rows
+          setLoading(true);
         }}
         className="space-y-4"
       >
@@ -250,16 +250,16 @@ const Dashboard = () => {
         </TabsList>
         <TabsContent value="DEACTIVATE" className="space-y-3">
           <p className="min-h-5 text-sm text-muted-foreground" aria-live="polite">
-            {selectedRowKeys.length ? `Selected ${selectedRowKeys.length} items` : ""}
+            {selectedIds.length ? `Selected ${selectedIds.length} items` : ""}
           </p>
           <DataTable
             aria-label="Inactive properties"
             columns={columns}
             data={data}
             getRowId={(row) => row.id}
-            selectedIds={selectedRowKeys}
-            onSelectedIdsChange={setSelectedRowKeys}
-            loading={initialLoading}
+            selectedIds={selectedIds}
+            onSelectedIdsChange={setSelectedIds}
+            loading={loading}
             empty={empty}
           />
         </TabsContent>
@@ -269,12 +269,12 @@ const Dashboard = () => {
             columns={columns}
             data={data}
             getRowId={(row) => row.id}
-            loading={initialLoading}
+            loading={loading}
             empty={empty}
           />
         </TabsContent>
       </Tabs>
-      <Dialog open={showModal} onOpenChange={(open) => !open && handleCloseModal()}>
+      <Dialog open={checkoutOpen} onOpenChange={(open) => !open && closeCheckout()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Payment</DialogTitle>
@@ -282,11 +282,11 @@ const Dashboard = () => {
           </DialogHeader>
           <Elements stripe={stripePromise}>
             <CheckoutForm
-              amount={Number(propertyAmount?.totalAmount) * 100}
+              amount={Number(paymentTotal?.totalAmount) * 100}
               currency="USD"
-              property_id={selectedRowKeys.length === 0 ? [propertyId as Id] : selectedRowKeys}
+              property_id={selectedIds.length === 0 ? [propertyId as Id] : selectedIds}
               description="Purchase"
-              onCloseModal={handleCloseModal}
+              onCloseModal={closeCheckout}
               onPaymentSuccess={handlePaymentSuccess}
             />
           </Elements>

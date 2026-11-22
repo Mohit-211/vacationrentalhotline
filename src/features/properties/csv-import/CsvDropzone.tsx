@@ -6,13 +6,13 @@ import { cn } from "@/lib/utils";
 import type { CsvRow } from "./CsvImport";
 
 interface CsvDropzoneProps {
-  handleFileUpload: (file: File) => void;
+  onFile: (file: File) => void;
   setData: (rows: CsvRow[]) => void;
-  setShowBtn: (show: boolean) => void;
+  setFileChosen: (chosen: boolean) => void;
   setError: (error: string | null) => void;
 }
 
-const CsvDropzone = ({ handleFileUpload, setData, setShowBtn, setError }: CsvDropzoneProps) => {
+const CsvDropzone = ({ onFile, setData, setFileChosen, setError }: CsvDropzoneProps) => {
   const [fileName, setFileName] = useState("");
   const [isFileUploaded, setIsFileUploaded] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -25,7 +25,7 @@ const CsvDropzone = ({ handleFileUpload, setData, setShowBtn, setError }: CsvDro
       return;
     }
     setErrorMessage("");
-    handleFileUpload(file);
+    onFile(file);
     setFileName(file.name);
     setIsFileUploaded(true);
   };
@@ -47,7 +47,7 @@ const CsvDropzone = ({ handleFileUpload, setData, setShowBtn, setError }: CsvDro
   };
 
   const handleRemoveFile = () => {
-    setShowBtn(false);
+    setFileChosen(false);
     setFileName("");
     setIsFileUploaded(false);
     setData([]);

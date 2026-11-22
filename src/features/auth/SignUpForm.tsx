@@ -46,8 +46,8 @@ const emptyForm: SignUpValues = {
 
 const SignUpForm = () => {
   const [loading, setLoading] = useState(false);
-  const [storeEmail, setStoreEmail] = useState<string>();
-  const [messageAlert, setMessageAlert] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState<string>();
+  const [verificationSent, setVerificationSent] = useState(false);
   const {
     register,
     control,
@@ -62,8 +62,8 @@ const SignUpForm = () => {
     try {
       await registerUser(values);
       reset(emptyForm);
-      setStoreEmail(values?.email);
-      setMessageAlert(true);
+      setSubmittedEmail(values?.email);
+      setVerificationSent(true);
     } catch (e) {
       console.log(e);
     } finally {
@@ -71,14 +71,14 @@ const SignUpForm = () => {
     }
   };
 
-  if (messageAlert) {
-    const emailText = `We've sent a verification link to the email address you provided: <strong>${storeEmail}</strong>. Please click the link in the email to verify your email address and complete the sign-up process. If the email address above is incorrect, please Sign Up Again to create a new account with the correct email.`;
+  if (verificationSent) {
+    const emailText = `We've sent a verification link to the email address you provided: <strong>${submittedEmail}</strong>. Please click the link in the email to verify your email address and complete the sign-up process. If the email address above is incorrect, please Sign Up Again to create a new account with the correct email.`;
     return (
       <StatusMessage
         subject="Almost there! Verify Your Email"
         text={emailText}
         buttonText="Create New Account"
-        onButtonClick={() => setMessageAlert(false)}
+        onButtonClick={() => setVerificationSent(false)}
         useHtmlText
         showLoginLink
       />
@@ -153,7 +153,7 @@ const SignUpForm = () => {
             />
             <label htmlFor="signup_terms" className="text-sm leading-snug">
               I have read the{" "}
-              <Link href="/terms-and-conditions" className={authLinkClasses}>
+              <Link href="/terms" className={authLinkClasses}>
                 terms and conditions
               </Link>
             </label>

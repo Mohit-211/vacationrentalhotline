@@ -208,18 +208,18 @@ const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
   const [selectedState, setSelectedState] = useState<number | null>(null);
   const [selectedCity, setSelectedCity] = useState<number | null>(null);
   const [isCsvMode, setIsCsvMode] = useState(false);
-  const [buttonLoading, setButtonLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const { control, handleSubmit, reset, getValues } = useForm<PropertyFormValues>({
     // Rebuilt each render, since ZIP rules depend on the selected country.
-    // `raw` hands the form's own values to onFinish, untouched by the schema.
+    // `raw` hands the form's own values to onSubmit, untouched by the schema.
     resolver: zodResolver(buildSchema(selectedCountry), undefined, { raw: true }) as Resolver<PropertyFormValues>,
     mode: "onChange",
     defaultValues: { properties: [propertyData ? { ...propertyData } : {}] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "properties" });
 
-  const addPropertyForm = () => {
+  const addProperty = () => {
     append({});
   };
 
@@ -231,14 +231,14 @@ const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
     }
   };
 
-  const onFinish = (values: PropertyFormValues) => {
+  const onSubmit = (values: PropertyFormValues) => {
     const allValues = { properties: getValues("properties").map(pickFields) };
     allValues.properties.forEach((property) => {
       property.country = countries.find((c) => c.id === selectedCountry)?.name;
       property.state = states.find((s) => s.id === selectedState)?.name;
       property.city = cities.find((c) => c.id === selectedCity)?.name;
     });
-    setButtonLoading(true);
+    setSaving(true);
     const apiCall = propertyData
       ? updateProperty(propertyData.id, pickFields(values.properties[0]))
       : createProperties(allValues);
@@ -252,11 +252,11 @@ const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
         console.log(e);
       })
       .finally(() => {
-        setButtonLoading(false);
+        setSaving(false);
       });
   };
 
-  const onFinishFailed = (errorInfo: unknown) => {
+  const onInvalid = (errorInfo: unknown) => {
     console.log("Failed:", errorInfo);
   };
 
@@ -433,7 +433,7 @@ const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
             {!isCsvMode && (
               <Button type="submit" form="property-form">
                 Save Details
-                {buttonLoading && <Spinner label="Saving" />}
+                {saving && <Spinner label="Saving" />}
               </Button>
             )}
           </>
@@ -445,12 +445,12 @@ const PropertyForm = ({ propertyData }: { propertyData?: Property | null }) => {
           id="property-form"
           noValidate
           autoComplete="off"
-          onSubmit={handleSubmit(onFinish, onFinishFailed)}
+          onSubmit={handleSubmit(onSubmit, onInvalid)}
           className="space-y-6"
         >
           {fields.map((_, index) => block(index))}
           {!propertyData && (
-            <Button type="button" variant="outline" onClick={addPropertyForm}>
+            <Button type="button" variant="outline" onClick={addProperty}>
               <Plus aria-hidden="true" />
               Add More Property
             </Button>

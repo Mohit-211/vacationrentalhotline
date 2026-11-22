@@ -6,15 +6,15 @@ import { Container } from "@/components/ui/Container";
 import { Logo } from "@/components/ui/Logo";
 
 const quickLinks = [
-  { href: "/#banner-section", label: "Home" },
-  { href: "/#about-section", label: "About" },
-  { href: "/#contact-us", label: "Contact" },
+  { href: "/#home", label: "Home" },
+  { href: "/#about", label: "About" },
+  { href: "/#contact", label: "Contact" },
 ];
 
 const legalLinks = [
   { href: "/privacy-policy", label: "Privacy Policy" },
-  { href: "/terms-and-conditions", label: "Terms and Conditions" },
-  { href: "/cookies-policy", label: "Cookie Policy" },
+  { href: "/terms", label: "Terms and Conditions" },
+  { href: "/cookie-policy", label: "Cookie Policy" },
 ];
 
 const linkClasses = "text-muted-foreground transition-colors hover:text-primary-strong";

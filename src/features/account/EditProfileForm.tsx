@@ -45,7 +45,7 @@ const EditProfileForm = () => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const { control, handleSubmit, reset } = useForm<ProfileFormValues>({
-    // `raw` hands the form's own values to onFinish, untouched by the schema.
+    // `raw` hands the form's own values to onSubmit, untouched by the schema.
     resolver: zodResolver(schema, undefined, { raw: true }) as Resolver<ProfileFormValues>,
     mode: "onChange",
   });
@@ -119,7 +119,7 @@ const EditProfileForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onFinish = async (values: ProfileFormValues) => {
+  const onSubmit = async (values: ProfileFormValues) => {
     setLoading(true);
     // As before, the number sent is the one loaded with the profile
     // (or the one typed), not necessarily the one the field showed.
@@ -151,7 +151,7 @@ const EditProfileForm = () => {
     items.map((item) => ({ value: item.id, label: item.name }));
 
   return (
-    <form noValidate autoComplete="off" onSubmit={handleSubmit(onFinish)} className="grid gap-5 md:grid-cols-2">
+    <form noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)} className="grid gap-5 md:grid-cols-2">
       <Controller
         control={control}
         name="name"

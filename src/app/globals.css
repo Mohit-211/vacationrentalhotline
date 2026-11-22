@@ -141,7 +141,7 @@
     outline-offset: 2px;
   }
 
-  /* In-page anchors (#about-section, ...) land below the sticky header. */
+  /* In-page anchors (#about, #contact, ...) land below the sticky header. */
   [id] {
     scroll-margin-top: 6rem;
   }

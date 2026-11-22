@@ -35,7 +35,7 @@ import { useIsClient } from "@/lib/useIsClient";
 
 const noteSchema = z.object({ notes: z.string().min(1, "Please enter a note") });
 
-const fetchDetails = async (id: Id, setData: (property: Property) => void) => {
+const loadProperty = async (id: Id, setData: (property: Property) => void) => {
   try {
     const res = await getProperty(id);
     setData(res.data.data);
@@ -59,8 +59,8 @@ const PropertyDetails = () => {
   const isClient = useIsClient();
   const [data, setData] = useState<Partial<Property>>({});
   const [loaded, setLoaded] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editId, setEditId] = useState<Id | null>(null);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<Id | null>(null);
   const {
     register,
     handleSubmit,
@@ -71,14 +71,14 @@ const PropertyDetails = () => {
 
   useEffect(() => {
     if (id) {
-      fetchDetails(id, setData).finally(() => setLoaded(true));
+      loadProperty(id, setData).finally(() => setLoaded(true));
     }
   }, [id]);
 
-  const handleModalToggle = useCallback(
+  const toggleNoteDialog = useCallback(
     (visible = false, noteId: Id | null = null) => {
-      setIsModalVisible(visible);
-      setEditId(noteId);
+      setNoteDialogOpen(visible);
+      setEditingNoteId(noteId);
       if (!visible) reset({ notes: "" });
     },
     [reset]
@@ -86,22 +86,22 @@ const PropertyDetails = () => {
 
   const saveNote = async (values: NoteInput) => {
     try {
-      const apiCall = isClient && editId ? updateNote(editId, values) : addNote(id, values);
+      const apiCall = isClient && editingNoteId ? updateNote(editingNoteId, values) : addNote(id, values);
       const res = await apiCall;
       toast.success(res.data.message);
-      handleModalToggle(false);
-      fetchDetails(id, setData);
+      toggleNoteDialog(false);
+      loadProperty(id, setData);
     } catch (e) {
       console.error(e);
     }
   };
-  const handleFormSubmit = handleSubmit(saveNote, (e) => console.error(e));
+  const submitNoteForm = handleSubmit(saveNote, (e) => console.error(e));
 
-  const handleEdit = async (noteId: Id) => {
+  const handleEditNote = async (noteId: Id) => {
     try {
       const res = await getNote(noteId);
       setValue("notes", res.data.data.notes);
-      handleModalToggle(true, noteId);
+      toggleNoteDialog(true, noteId);
     } catch (e) {
       console.error(e);
     }
@@ -111,13 +111,13 @@ const PropertyDetails = () => {
     try {
       await deleteNote(noteId);
       toast.success("Note deleted successfully");
-      fetchDetails(id, setData);
+      loadProperty(id, setData);
     } catch (e) {
       console.error(e);
     }
   };
 
-  const handleEditProperty = () => router.push(`/addnewproperty/${id}`);
+  const handleEditProperty = () => router.push(`/properties/${id}/edit`);
   const handleDeleteProperty = () => {
     const formData = {
       property_ids: [id],
@@ -194,7 +194,7 @@ const PropertyDetails = () => {
         }
         actions={
           <>
-            <Button variant="outline" onClick={() => handleModalToggle(true)}>
+            <Button variant="outline" onClick={() => toggleNoteDialog(true)}>
               <Plus aria-hidden="true" />
               Add a Note
             </Button>
@@ -269,7 +269,7 @@ const PropertyDetails = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => handleEdit(item.id)}>
+                    <DropdownMenuItem onSelect={() => handleEditNote(item.id)}>
                       <Pencil aria-hidden="true" />
                       Edit
                     </DropdownMenuItem>
@@ -294,18 +294,18 @@ const PropertyDetails = () => {
         )}
       </section>
 
-      <Dialog open={isModalVisible} onOpenChange={(open) => !open && handleModalToggle(false)}>
+      <Dialog open={noteDialogOpen} onOpenChange={(open) => !open && toggleNoteDialog(false)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isClient && editId ? "Edit Note" : "Add a Note"}</DialogTitle>
+            <DialogTitle>{isClient && editingNoteId ? "Edit Note" : "Add a Note"}</DialogTitle>
           </DialogHeader>
-          <form id="note-form" noValidate onSubmit={handleFormSubmit}>
+          <form id="note-form" noValidate onSubmit={submitNoteForm}>
             <FormField id="note_notes" error={errors.notes?.message}>
               <Textarea rows={4} placeholder="Enter your note here" aria-label="Note" {...register("notes")} />
             </FormField>
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleModalToggle(false)}>
+            <Button variant="outline" onClick={() => toggleNoteDialog(false)}>
               Cancel
             </Button>
             <Button type="submit" form="note-form">

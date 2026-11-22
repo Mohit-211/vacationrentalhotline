@@ -1,6 +1,6 @@
 import Image from "next/image";
-import logoWordmark from "@public/logo-2.png";
-import logoMark from "@public/logo-1.png";
+import logoWordmark from "@public/logo.png";
+import logoMark from "@public/logo-mark.png";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {

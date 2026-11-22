@@ -5,7 +5,7 @@ import PurchaseButton from "./PurchaseButton";
 
 const About = () => {
   return (
-    <Section id="about-section">
+    <Section id="about">
       <Container>
         <SectionHeading
           align="center"

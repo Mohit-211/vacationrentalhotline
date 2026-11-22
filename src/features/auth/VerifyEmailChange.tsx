@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { verifyEmail } from "@/lib/api/auth";
+import { verifyNewEmail } from "@/lib/api/auth";
+import { clearToken } from "@/lib/session";
 import StatusMessage from "@/components/ui/StatusMessage";
 
-const EmailVerification = () => {
+const VerifyEmailChange = () => {
   const [verified, setVerified] = useState(false);
   const [alreadyVerified, setAlreadyVerified] = useState(false);
   const router = useRouter();
@@ -13,9 +14,10 @@ const EmailVerification = () => {
   const handleVerify = () => {
     const token = new URLSearchParams(window.location.search).get("token");
     const formData = { token };
-    verifyEmail(formData)
+    verifyNewEmail(formData)
       .then(() => {
         setVerified(true);
+        clearToken();
       })
       .catch((e) => {
         console.log(e);
@@ -23,7 +25,7 @@ const EmailVerification = () => {
           setAlreadyVerified(true);
         }
         if (e?.response?.data?.status === 410) {
-          setTimeout(() => router.push("/signup"), 3000);
+          setTimeout(() => router.push("/login"), 3000);
         }
       });
   };
@@ -60,4 +62,4 @@ const EmailVerification = () => {
   );
 };
 
-export default EmailVerification;
+export default VerifyEmailChange;

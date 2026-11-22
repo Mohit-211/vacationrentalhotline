@@ -48,7 +48,7 @@ const CookieBanner = () => {
             traffic. We also share information about your use of our site with our social media, advertising, and
             analytics partners who may combine it with other information that you’ve provided to them or that
             they’ve collected from your use of their services.{" "}
-            <Link href="/cookies-policy" className="font-semibold text-primary-strong hover:text-primary-stronger hover:underline">
+            <Link href="/cookie-policy" className="font-semibold text-primary-strong hover:text-primary-stronger hover:underline">
               Read More
             </Link>
           </p>

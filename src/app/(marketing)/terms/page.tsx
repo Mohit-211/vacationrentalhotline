@@ -1,6 +1,6 @@
 import { LegalDocument } from "@/features/legal/LegalDocument";
 import { termsAndConditionsHtml } from "@/features/legal/termsAndConditions";
 
-export default function TermsAndConditionsPage() {
+export default function TermsPage() {
   return <LegalDocument html={termsAndConditionsHtml} />;
 }

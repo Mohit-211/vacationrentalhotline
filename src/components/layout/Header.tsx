@@ -19,9 +19,9 @@ import { clearToken, getToken } from "@/lib/session";
 import { useIsClient } from "@/lib/useIsClient";
 
 const sections = [
-  { id: "banner-section", label: "Home" },
-  { id: "about-section", label: "About" },
-  { id: "contact-us", label: "Contact" },
+  { id: "home", label: "Home" },
+  { id: "about", label: "About" },
+  { id: "contact", label: "Contact" },
 ];
 
 const navLinkClasses =
@@ -84,7 +84,7 @@ const Header = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => router.push("/profile")}>
+                <DropdownMenuItem onSelect={() => router.push("/account")}>
                   <UserRound aria-hidden="true" />
                   Profile
                 </DropdownMenuItem>
@@ -134,7 +134,7 @@ const Header = () => {
               {isClient && token ? (
                 <>
                   <SheetClose asChild>
-                    <button type="button" className={sheetLinkClasses} onClick={() => router.push("/change-password")}>
+                    <button type="button" className={sheetLinkClasses} onClick={() => router.push("/account/password")}>
                       <KeyRound aria-hidden="true" />
                       Change Password
                     </button>

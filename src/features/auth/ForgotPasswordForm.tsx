@@ -20,7 +20,7 @@ type ForgotPasswordValues = z.infer<typeof schema>;
 
 const ForgotPasswordForm = () => {
   const [loading, setLoading] = useState(false);
-  const [messageAlert, setMessageAlert] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const {
     register,
     handleSubmit,
@@ -33,7 +33,7 @@ const ForgotPasswordForm = () => {
     try {
       const res = await sendPasswordResetLink(formData);
       toast.success(res?.data?.message);
-      setMessageAlert(true);
+      setLinkSent(true);
     } catch (e) {
       console.error("Error sending OTP:", e);
     } finally {
@@ -41,7 +41,7 @@ const ForgotPasswordForm = () => {
     }
   };
 
-  if (messageAlert) {
+  if (linkSent) {
     return (
       <AuthCard title="Check Your Mail">
         <div className="flex items-start gap-3 rounded-lg bg-primary-soft p-4 text-sm">

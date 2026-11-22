@@ -34,7 +34,7 @@ const LoginForm = () => {
     defaultValues: { email: "", password: "" },
   });
 
-  const onFinish = async (values: LoginValues) => {
+  const onSubmit = async (values: LoginValues) => {
     setLoading(true);
     try {
       const response = await login(values);
@@ -63,7 +63,7 @@ const LoginForm = () => {
         </>
       }
     >
-      <form noValidate onSubmit={handleSubmit(onFinish)} className="grid gap-5">
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
         <FormField id="loginForm_email" label="Email" required error={errors.email?.message}>
           <Input placeholder="Enter Email Address" autoComplete="email" {...register("email")} />
         </FormField>

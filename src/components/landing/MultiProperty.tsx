@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Phone } from "lucide-react";
-import Section6image from "@public/assets/section5.png";
+import agentOnPhone from "@public/assets/agent-on-phone.png";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import PurchaseButton from "./PurchaseButton";
@@ -9,7 +9,7 @@ const MultiProperty = () => {
   return (
     <Section className="bg-surface">
       <Container className="grid items-center gap-12 lg:grid-cols-[2fr_3fr]">
-        <Image src={Section6image} alt="" sizes="(min-width: 1024px) 24rem, 80vw" className="mx-auto w-full max-w-sm" />
+        <Image src={agentOnPhone} alt="" sizes="(min-width: 1024px) 24rem, 80vw" className="mx-auto w-full max-w-sm" />
         <div>
           <h2 className="text-3xl leading-tight font-bold sm:text-4xl">
             Vacation Rental Hotline ensures a live representative is available for your property 365 days of the year

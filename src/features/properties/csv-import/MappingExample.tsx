@@ -14,7 +14,7 @@ const MappingExample = () => {
       <h3 className="text-base font-bold">Matching Fields with CSV Column Names</h3>
       <p>You can download the sample CSV file to understand the structure and format of the data.</p>
       <a
-        href="/Propertysample.csv"
+        href="/property-import-sample.csv"
         download
         className="inline-flex items-center gap-2 font-semibold text-primary-strong underline-offset-4 hover:text-primary-stronger hover:underline"
       >
