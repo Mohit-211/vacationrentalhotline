@@ -21,10 +21,8 @@ const schema = z
   .object({
     name: z.string().trim().min(1, "Please input your name!").max(150, "Name cannot exceed 150 characters."),
     email: z.string(),
-    phone: z
-      .string()
-      .min(1, "Please input your mobile!")
-      .refine((value) => !value || isValidPhone(value), "Invalid phone number."),
+    // Optional, as at sign-up; a number that is given must be valid.
+    phone: z.string().refine((value) => !value || isValidPhone(value), "Invalid phone number."),
     streetAddress: z
       .string()
       .trim()
@@ -143,7 +141,7 @@ const EditProfileForm = ({ account, onSaved }: { account?: Account; onSaved?: (a
         control={control}
         name="phone"
         render={({ field, fieldState }) => (
-          <FormField id="profile_mobile" label="Mobile" required error={fieldState.error?.message}>
+          <FormField id="profile_mobile" label="Mobile" error={fieldState.error?.message}>
             <PhoneInput
               placeholder="Enter Mobile Number"
               defaultCountry="US"
