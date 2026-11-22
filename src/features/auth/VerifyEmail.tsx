@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import StatusMessage from "@/components/ui/StatusMessage";
 import { authClient, authErrorMessage, isBadLinkError } from "@/lib/auth-client";
@@ -12,7 +11,6 @@ const VerifyEmail = () => {
   const [verified, setVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [badLink, setBadLink] = useState(false);
-  const router = useRouter();
 
   const handleVerify = async () => {
     const token = new URLSearchParams(window.location.search).get("token") ?? "";
@@ -46,7 +44,7 @@ const VerifyEmail = () => {
           </>
         }
         buttonText="Go to Login"
-        onButtonClick={() => router.push("/login")}
+        buttonHref="/login"
       />
     );
   }
@@ -57,7 +55,7 @@ const VerifyEmail = () => {
         subject="Email Verified Successfully!"
         text="Your email has been successfully verified. You may now log in to access your Vacation Rental Hotline account."
         buttonText="Back to Login"
-        onButtonClick={() => router.push("/login")}
+        buttonHref="/login"
       />
     );
   }

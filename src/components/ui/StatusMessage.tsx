@@ -17,6 +17,9 @@ interface StatusMessageProps {
   /** The message; may contain markup such as <strong>, as React elements. */
   text: ReactNode;
   buttonText: string;
+  /** Where the button goes; a link, so it opens in a new tab too. */
+  buttonHref?: string;
+  /** For a button that does something rather than go somewhere. */
   onButtonClick?: () => void;
   tone?: keyof typeof tones;
   /** Adds a "Go to Login" line under the button. */
@@ -29,6 +32,7 @@ const StatusMessage = ({
   subject,
   text,
   buttonText,
+  buttonHref,
   onButtonClick,
   tone = "info",
   showLoginLink = false,
@@ -44,9 +48,15 @@ const StatusMessage = ({
         <p className="mt-4 leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">
           {text}
         </p>
-        <Button size="lg" className="mt-8" onClick={onButtonClick}>
-          {buttonText}
-        </Button>
+        {buttonHref ? (
+          <Button asChild size="lg" className="mt-8">
+            <Link href={buttonHref}>{buttonText}</Link>
+          </Button>
+        ) : (
+          <Button size="lg" className="mt-8" onClick={onButtonClick}>
+            {buttonText}
+          </Button>
+        )}
         {showLoginLink && (
           <p className="mt-6 text-sm text-muted-foreground">
             Go to{" "}

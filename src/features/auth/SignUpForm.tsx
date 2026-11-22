@@ -160,7 +160,8 @@ const SignUpForm = () => {
             />
             <label htmlFor="signup_terms" className="text-sm leading-snug">
               I have read the{" "}
-              <Link href="/terms" className={authLinkClasses}>
+              {/* A new tab, so leaving to read them doesn't lose the form. */}
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className={authLinkClasses}>
                 terms and conditions
               </Link>
             </label>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import Link, { useLinkStatus } from "next/link";
 import { Building2, CircleAlert, EllipsisVertical, Plus, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Alert } from "@/components/ui/Alert";
@@ -39,8 +39,13 @@ export const coverLabel = (property: Pick<Property, "subscriptionEndsAt" | "auto
 export const priceSummary = () =>
   `Cover costs ${formatPrice(PRICING.singlePropertyCents)} a year for one property, or ${formatPrice(PRICING.multiPropertyCents)} a year each for 2 to ${PRICING.maxPropertiesOnline}.`;
 
+/** A spinner while the enclosing link's page loads (only if it wasn't prefetched); `idle` otherwise. */
+function LinkPending({ idle = null }: { idle?: ReactNode }) {
+  const { pending } = useLinkStatus();
+  return pending ? <Spinner label="Opening" /> : idle;
+}
+
 const Dashboard = () => {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Property[]>([]);
   const [account, setAccount] = useState<Account>();
@@ -53,18 +58,6 @@ const Dashboard = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const freeCover = account?.freeCover ?? null;
   const atFreeCoverLimit = freeCover !== null && freeCover.used >= freeCover.properties;
-
-  // router.push() returns nothing in the App Router, so pending navigations
-  // are tracked with a transition instead of a Promise.
-  const [isNavigating, startNavigation] = useTransition();
-  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
-  const navigateTo = (path: string) => {
-    setNavigatingTo(path);
-    startNavigation(() => router.push(path));
-  };
-  const isNavigatingTo = (path: string) => isNavigating && navigatingTo === path;
-  const addNewLoading = isNavigatingTo("/properties/new");
-  const viewDetailLoading = (id: string) => isNavigatingTo(`/properties/${id}`);
 
   const fetchProperties = useCallback((type: PropertyStatus) => {
     listProperties(type)
@@ -167,14 +160,11 @@ const Dashboard = () => {
               Activate
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigateTo(`/properties/${row.original.id}`)}
-            disabled={viewDetailLoading(row.original.id)}
-          >
-            {viewDetailLoading(row.original.id) && <Spinner label="Opening" />}
-            View Detail
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/properties/${row.original.id}`}>
+              <LinkPending />
+              View Detail
+            </Link>
           </Button>
         </div>
       ),
@@ -192,7 +182,9 @@ const Dashboard = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onSelect={() => router.push(`/properties/${row.original.id}/edit`)}>Edit</DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/properties/${row.original.id}/edit`}>Edit</Link>
+                  </DropdownMenuItem>
                   {row.original.canDelete && (
                     <DropdownMenuItem variant="danger" onSelect={() => setToDelete([row.original.id])}>
                       Delete
@@ -251,10 +243,20 @@ const Dashboard = () => {
                 Delete
               </Button>
             )}
-            <Button onClick={() => navigateTo("/properties/new")} disabled={atFreeCoverLimit}>
-              {addNewLoading ? <Spinner label="Opening" /> : <Plus aria-hidden="true" />}
-              Add New Properties
-            </Button>
+            {atFreeCoverLimit ? (
+              // At the free cover limit there's nothing to add, so it isn't a link.
+              <Button disabled>
+                <Plus aria-hidden="true" />
+                Add New Properties
+              </Button>
+            ) : (
+              <Button asChild>
+                <Link href="/properties/new">
+                  <LinkPending idle={<Plus aria-hidden="true" />} />
+                  Add New Properties
+                </Link>
+              </Button>
+            )}
           </>
         }
       />

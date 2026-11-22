@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AtSign, KeyRound, UserRound } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import StatusMessage from "@/components/ui/StatusMessage";
@@ -21,7 +20,6 @@ const Account = () => {
   const [isPasswordChanged, setIsPasswordChanged] = useState(false);
   const [isEmailChanged, setIsEmailChanged] = useState(false);
   const [profileData, setProfileData] = useState<AccountDetails>();
-  const router = useRouter();
 
   // Loaded once here, for the sidebar and the profile form alike.
   useEffect(() => {
@@ -47,7 +45,7 @@ const Account = () => {
         subject="Password Updated Successfully!"
         text="Your password has been successfully updated. You may now log in with your new password to access your Vacation Rental Hotline account."
         buttonText="Back to Login"
-        onButtonClick={() => router.push("/login")}
+        buttonHref="/login"
       />
     );
   }

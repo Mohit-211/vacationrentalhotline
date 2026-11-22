@@ -145,7 +145,6 @@ const PropertyDetails = () => {
     }
   };
 
-  const handleEditProperty = () => router.push(`/properties/${id}/edit`);
   const handleDeleteProperty = async () => {
     await deleteProperties([id]);
     toast.success("Property deleted.");
@@ -245,9 +244,11 @@ const PropertyDetails = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onSelect={handleEditProperty}>
-                  <Pencil aria-hidden="true" />
-                  Edit
+                <DropdownMenuItem asChild>
+                  <Link href={`/properties/${id}/edit`}>
+                    <Pencil aria-hidden="true" />
+                    Edit
+                  </Link>
                 </DropdownMenuItem>
                 {data?.status === "active" && data.autoRenews && (
                   <DropdownMenuItem variant="danger" onSelect={() => setCancelOpen(true)}>

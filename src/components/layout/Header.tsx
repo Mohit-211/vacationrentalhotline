@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { ChevronDown, KeyRound, LayoutDashboard, LogOut, Menu, UserRound } from "lucide-react";
+import { useState, type MouseEvent } from "react";
+import { ChevronDown, LayoutDashboard, LogOut, Menu, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import {
@@ -29,6 +29,15 @@ const navLinkClasses =
 const sheetLinkClasses =
   "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-base font-semibold text-foreground transition-colors hover:bg-surface-muted [&_svg]:size-5 [&_svg]:text-muted-foreground";
 
+/**
+ * The home page's section links are real #anchors (they work without
+ * JavaScript and open in a new tab); a click scrolls smoothly instead.
+ */
+const scrollToSection = (event: MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+  event.preventDefault();
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
 const Header = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -38,16 +47,8 @@ const Header = () => {
   const sessionKnown = isClient && !isPending;
   const signedIn = sessionKnown && Boolean(session);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The sections live on the home page; elsewhere the footer links to them.
   const showSectionLinks = isClient && pathname === "/";
-
-  const handleScrollLinkClick = (sectionId: string) => {
-    const path = "/";
-    if (pathname !== path) {
-      router.push(`${path}#${sectionId}`);
-    } else {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
 
   const handleLogout = async () => {
     // Ends the session on the server too, not just in this browser.
@@ -66,14 +67,14 @@ const Header = () => {
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
           {showSectionLinks &&
             sections.map((section) => (
-              <button
+              <a
                 key={section.id}
-                type="button"
+                href={`#${section.id}`}
                 className={navLinkClasses}
-                onClick={() => handleScrollLinkClick(section.id)}
+                onClick={(event) => scrollToSection(event, section.id)}
               >
                 {section.label}
-              </button>
+              </a>
             ))}
           {!sessionKnown ? (
             // Reserve the account area's space until the session is known.
@@ -88,13 +89,17 @@ const Header = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => router.push("/account")}>
-                  <UserRound aria-hidden="true" />
-                  Profile
+                <DropdownMenuItem asChild>
+                  <Link href="/account">
+                    <UserRound aria-hidden="true" />
+                    Profile
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => router.push("/dashboard")}>
-                  <LayoutDashboard aria-hidden="true" />
-                  Dashboard
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard">
+                    <LayoutDashboard aria-hidden="true" />
+                    Dashboard
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={handleLogout}>
@@ -105,17 +110,17 @@ const Header = () => {
             </DropdownMenu>
           ) : (
             <div className="ml-3 flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => router.push("/signup")}>
-                Sign Up
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/signup">Sign Up</Link>
               </Button>
-              <Button size="sm" onClick={() => router.push("/login")}>
-                Login
+              <Button asChild size="sm">
+                <Link href="/login">Login</Link>
               </Button>
             </div>
           )}
         </nav>
 
-        {/* Mobile */}
+        {/* Mobile: the same choices as on desktop */}
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
@@ -130,24 +135,28 @@ const Header = () => {
               {showSectionLinks &&
                 sections.map((section) => (
                   <SheetClose asChild key={section.id}>
-                    <button type="button" className={sheetLinkClasses} onClick={() => handleScrollLinkClick(section.id)}>
+                    <a
+                      href={`#${section.id}`}
+                      className={sheetLinkClasses}
+                      onClick={(event) => scrollToSection(event, section.id)}
+                    >
                       {section.label}
-                    </button>
+                    </a>
                   </SheetClose>
                 ))}
               {signedIn ? (
                 <>
                   <SheetClose asChild>
-                    <button type="button" className={sheetLinkClasses} onClick={() => router.push("/account/password")}>
-                      <KeyRound aria-hidden="true" />
-                      Change Password
-                    </button>
+                    <Link href="/account" className={sheetLinkClasses}>
+                      <UserRound aria-hidden="true" />
+                      Profile
+                    </Link>
                   </SheetClose>
                   <SheetClose asChild>
-                    <button type="button" className={sheetLinkClasses} onClick={() => router.push("/dashboard")}>
+                    <Link href="/dashboard" className={sheetLinkClasses}>
                       <LayoutDashboard aria-hidden="true" />
                       Dashboard
-                    </button>
+                    </Link>
                   </SheetClose>
                   <SheetClose asChild>
                     <button type="button" className={sheetLinkClasses} onClick={handleLogout}>
@@ -159,13 +168,13 @@ const Header = () => {
               ) : (
                 <div className="mt-4 grid gap-2">
                   <SheetClose asChild>
-                    <Button size="lg" onClick={() => router.push("/login")}>
-                      Login
+                    <Button asChild size="lg">
+                      <Link href="/login">Login</Link>
                     </Button>
                   </SheetClose>
                   <SheetClose asChild>
-                    <Button size="lg" variant="outline" onClick={() => router.push("/signup")}>
-                      Sign Up
+                    <Button asChild size="lg" variant="outline">
+                      <Link href="/signup">Sign Up</Link>
                     </Button>
                   </SheetClose>
                 </div>
