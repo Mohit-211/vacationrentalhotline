@@ -29,8 +29,7 @@ const plans = [
 
 const Pricing = () => {
   return (
-    // Extra room at the top: the hero's house spills down into it.
-    <Section className="pt-28 sm:pt-36 lg:pt-44">
+    <Section>
       <Container>
         <SectionHeading
           align="center"
