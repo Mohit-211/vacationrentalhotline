@@ -1,4 +1,4 @@
-import { parsePhoneNumber } from "react-phone-number-input";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 // The email pattern antd's form validation used (@rc-component/async-validator),
 // kept so the rebuilt forms accept and reject exactly the same addresses.
@@ -8,5 +8,9 @@ const EMAIL_PATTERN =
 /** Same rule as antd's `type: "email"` check. */
 export const isEmail = (value: string) => value.length <= 320 && EMAIL_PATTERN.test(value);
 
-/** Same rule as the old validators: libphonenumber-js says the number is valid. */
-export const isValidPhone = (value: string) => Boolean(parsePhoneNumber(value)?.isValid());
+/**
+ * Same rule as the old validators: libphonenumber-js says the number is valid.
+ * Imported from libphonenumber-js itself (the library react-phone-number-input
+ * wraps, with the same metadata) so the server can run it too.
+ */
+export const isValidPhone = (value: string) => Boolean(parsePhoneNumberFromString(value)?.isValid());
