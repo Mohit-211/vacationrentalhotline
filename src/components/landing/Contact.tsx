@@ -15,7 +15,7 @@ import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Section, SectionHeading } from "@/components/ui/Section";
 import { Textarea } from "@/components/ui/Textarea";
 import { sendContactMessage } from "@/lib/api/contact";
-import { isEmail, isValidPhone } from "@/lib/validation";
+import { isEmail, isUsOrCanadaPhone, US_AND_CANADA } from "@/lib/validation";
 
 const schema = z.object({
   name: z.string().min(1, "Please input your name!"),
@@ -23,7 +23,7 @@ const schema = z.object({
   contact_number: z
     .string()
     .min(1, "Please input your mobile number!")
-    .refine(isValidPhone, "Invalid phone number."),
+    .refine(isUsOrCanadaPhone, "Please enter a valid US or Canadian phone number."),
   requirements: z.string().min(1, "Please input your message!"),
 });
 type ContactValues = z.infer<typeof schema>;
@@ -99,6 +99,8 @@ const Contact = () => {
                     <PhoneInput
                       placeholder="Enter Mobile Number"
                       defaultCountry="US"
+                      countries={US_AND_CANADA}
+                      addInternationalOption={false}
                       value={field.value}
                       onChange={(value) => field.onChange(value ?? "")}
                       onBlur={field.onBlur}

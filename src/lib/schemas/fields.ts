@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isEmail, isValidPhone } from "@/lib/validation";
+import { isEmail, isUsOrCanadaPhone, isValidPhone } from "@/lib/validation";
 
 // Building blocks for the shared request schemas. Text is trimmed, and blank
 // text counts as missing, so "   " fails a required field and clears an
@@ -27,6 +27,13 @@ export const optionalEmail = (invalidMessage: string) =>
 /** E.164, as the phone input produces it. */
 export const requiredPhone = (requiredMessage: string, invalidMessage: string) =>
   z.preprocess(blank, z.string({ error: requiredMessage }).max(20, invalidMessage).refine(isValidPhone, invalidMessage));
+
+/** Like requiredPhone, for US and Canadian numbers only. */
+export const requiredUsOrCanadaPhone = (requiredMessage: string, invalidMessage: string) =>
+  z.preprocess(
+    blank,
+    z.string({ error: requiredMessage }).max(20, invalidMessage).refine(isUsOrCanadaPhone, invalidMessage),
+  );
 
 export const optionalPhone = (invalidMessage: string) =>
   z.preprocess(blank, z.string().max(20, invalidMessage).refine(isValidPhone, invalidMessage).optional());

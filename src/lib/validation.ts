@@ -1,4 +1,4 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 
 // The email pattern antd's form validation used (@rc-component/async-validator),
 // kept so the rebuilt forms accept and reject exactly the same addresses.
@@ -14,3 +14,12 @@ export const isEmail = (value: string) => value.length <= 320 && EMAIL_PATTERN.t
  * wraps, with the same metadata) so the server can run it too.
  */
 export const isValidPhone = (value: string) => Boolean(parsePhoneNumberFromString(value)?.isValid());
+
+/** The countries the contact form takes phone numbers from. */
+export const US_AND_CANADA: CountryCode[] = ["US", "CA"];
+
+/** A valid US or Canadian number. Other +1 countries, such as Jamaica, don't count. */
+export const isUsOrCanadaPhone = (value: string) => {
+  const phone = parsePhoneNumberFromString(value);
+  return Boolean(phone?.isValid() && phone.country && US_AND_CANADA.includes(phone.country));
+};
