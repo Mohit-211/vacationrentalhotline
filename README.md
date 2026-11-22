@@ -168,6 +168,7 @@ src/
     ui/            shared building blocks (Button, Dialog, DataTable, ...)
     layout/        header, footer and cookie banner
     landing/       home-page sections
+  content/legal/   the privacy policy, terms and cookie policy, as Markdown: edit the text here
   features/        screens grouped by area: account, auth, dashboard, legal, properties
   lib/             API client, validation helpers and form rules shared with the server (lib/schemas)
   server/          server-only code: database (db/), Better Auth (auth.ts), email, environment
