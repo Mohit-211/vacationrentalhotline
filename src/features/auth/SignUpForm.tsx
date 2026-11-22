@@ -22,7 +22,8 @@ const schema = z
   .object({
     name: z.string().min(1, "Please input your name!"),
     email: z.string().min(1, "Please input your email!").refine(isEmail, "Please input your email!"),
-    mobile: z.string().min(1, "Please input your mobile!").refine(isValidPhone, "Invalid phone number."),
+    // Optional; a number that is given must be valid.
+    mobile: z.string().refine((value) => !value || isValidPhone(value), "Invalid phone number."),
     password: z.string().min(1, "Please input your password!").pipe(passwordSchema),
     confirm_password: z.string().min(1, "Please confirm your password!"),
     terms: z.boolean().refine((accepted) => accepted, "Should accept terms and conditions"),
@@ -62,7 +63,7 @@ const SignUpForm = () => {
       name: values.name.trim(),
       email: values.email.trim(),
       password: values.password,
-      phone: values.mobile,
+      phone: values.mobile || undefined,
     });
     setLoading(false);
     if (error) {
@@ -115,7 +116,7 @@ const SignUpForm = () => {
           control={control}
           name="mobile"
           render={({ field }) => (
-            <FormField id="signup_mobile" label="Mobile" required error={errors.mobile?.message}>
+            <FormField id="signup_mobile" label="Mobile" error={errors.mobile?.message}>
               <PhoneInput
                 placeholder="Enter Mobile Number"
                 defaultCountry="US"
