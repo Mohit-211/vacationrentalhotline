@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
+import { CUSTOMER_ROLE } from "@/lib/permissions";
 import type { Auth } from "@/server/auth";
 
 /**
@@ -12,6 +13,14 @@ export const authClient = createAuthClient({
 });
 
 export const { useSession } = authClient;
+
+/**
+ * Whether a session is a customer's. Staff sign in on the admin panel, which
+ * shares this site's cookie; on this site their session counts as signed out.
+ */
+export function isCustomerSession(session: { user: object } | null | undefined): boolean {
+  return (session?.user as { role?: string } | undefined)?.role === CUSTOMER_ROLE;
+}
 
 interface AuthError {
   code?: string;

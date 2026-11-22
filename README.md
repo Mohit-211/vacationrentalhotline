@@ -65,7 +65,8 @@ status (400, 401, 403, 404, 500).
 
 | Endpoint | What it does |
 | -------- | ------------ |
-| `/api/auth/*` | Better Auth: sign-up, sign-in, sign-out, session, email verification, password reset and change, email change |
+| `/api/auth/*` | Better Auth for customers: sign-up, sign-in, sign-out, session, email verification, password reset and change, email change |
+| `/api/admin/auth/*` | Better Auth for staff (the admin panel): sign-in, sign-out, session, password change and reset. Its own cookie; customers can't sign in here, nor staff on the website |
 | `GET, POST, DELETE /api/properties` | List the user's properties (`?status=active\|inactive`), add 1–500, delete several |
 | `GET, PATCH, DELETE /api/properties/:id` | One property with its notes; partial update; delete |
 | `GET, POST /api/properties/:id/notes`, `GET, PATCH, DELETE …/notes/:noteId` | Notes on a property |

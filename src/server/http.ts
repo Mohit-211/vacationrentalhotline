@@ -2,7 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { ADMIN_ROLE, CUSTOMER_ROLE, PERMISSION_NAMES, type Permission } from "@/lib/permissions";
-import { auth, type Session } from "@/server/auth";
+import { auth, staffAuth, type Auth, type Session } from "@/server/auth";
 import { db } from "@/server/db";
 import { roles } from "@/server/db/schema";
 import { serverEnv } from "@/server/env";
@@ -113,11 +113,23 @@ export async function readBody<T extends z.ZodType>(request: Request, schema: T)
 
 export type SessionUser = Session["user"];
 
-/** The signed-in user, or a 401. */
-export async function requireUser(request: Request): Promise<SessionUser> {
-  const session = await auth().api.getSession({ headers: request.headers });
+const roleOf = (user: SessionUser) => (user as SessionUser & { role?: string }).role ?? CUSTOMER_ROLE;
+
+/** Whoever is signed in through that sign-in (customers' or staff's), or a 401. */
+async function signedInUser(request: Request, instance: Auth): Promise<SessionUser> {
+  const session = await instance.api.getSession({ headers: request.headers });
   if (!session) throw new HttpError(401, "UNAUTHENTICATED", "Please sign in to continue.");
   return session.user;
+}
+
+/**
+ * The signed-in customer, or a 401. Staff have their own sign-in and cookie
+ * (the admin panel's), and a staff account counts as signed out here anyway.
+ */
+export async function requireUser(request: Request): Promise<SessionUser> {
+  const user = await signedInUser(request, auth());
+  if (roleOf(user) !== CUSTOMER_ROLE) throw new HttpError(401, "UNAUTHENTICATED", "Please sign in to continue.");
+  return user;
 }
 
 // ---- Staff ---------------------------------------------------------------------
@@ -133,8 +145,8 @@ export interface Staff {
  * a role without the permission). "admin" has every permission.
  */
 export async function requireStaff(request: Request, permission?: Permission): Promise<Staff> {
-  const user = await requireUser(request);
-  const role = (user as SessionUser & { role?: string }).role ?? CUSTOMER_ROLE;
+  const user = await signedInUser(request, staffAuth());
+  const role = roleOf(user);
   if (role === CUSTOMER_ROLE) throw new HttpError(403, "FORBIDDEN", "This account can't use the admin panel.");
   let permissions: Permission[];
   if (role === ADMIN_ROLE) {

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { Logo } from "@/components/ui/Logo";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
-import { authClient, useSession } from "@/lib/auth-client";
+import { authClient, isCustomerSession, useSession } from "@/lib/auth-client";
 import { useIsClient } from "@/lib/useIsClient";
 
 const sections = [
@@ -45,7 +45,7 @@ const Header = () => {
   const { data: session, isPending } = useSession();
   // Until the session is known, the account area keeps its space empty.
   const sessionKnown = isClient && !isPending;
-  const signedIn = sessionKnown && Boolean(session);
+  const signedIn = sessionKnown && isCustomerSession(session);
   const [menuOpen, setMenuOpen] = useState(false);
   // The sections live on the home page; elsewhere the footer links to them.
   const showSectionLinks = isClient && pathname === "/";

@@ -4,11 +4,12 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { admin } from "better-auth/plugins/admin";
 import type { z } from "zod";
-import { AUTH_COOKIE_PREFIX } from "@/lib/auth-cookie";
+import { AUTH_COOKIE_PREFIX, STAFF_COOKIE_PREFIX } from "@/lib/auth-cookie";
+import { CUSTOMER_ROLE } from "@/lib/permissions";
 import { personNameSchema, phoneNumberSchema } from "@/lib/schemas/common";
 import { passwordSchema } from "@/lib/schemas/password";
 import { db, schema } from "@/server/db";
-import { signInEvents } from "@/server/db/schema";
+import { signInEvents, users } from "@/server/db/schema";
 import {
   emailChangedMessage,
   passwordChangedMessage,
@@ -46,21 +47,31 @@ function check<T extends z.ZodType>(rule: T, value: unknown, code: string) {
   }
 }
 
-function createAuth() {
+/**
+ * Who signs in through an instance: customers on the website (/api/auth), or
+ * staff on the admin panel (/api/admin/auth). Each has its own session cookie,
+ * so signing in to one never signs anyone in or out of the other, even in the
+ * same browser, and each refuses the other kind of account.
+ */
+type Realm = "customers" | "staff";
+
+function createAuth(realm: Realm) {
   const env = serverEnv();
+  const forStaff = realm === "staff";
 
   return betterAuth({
     appName: "Vacation Rental Hotline",
     baseURL: env.APP_URL,
+    basePath: forStaff ? "/api/admin/auth" : "/api/auth",
     // The admin panel signs in from its own origin (same site, so the
     // SameSite=Lax session cookie still applies).
-    trustedOrigins: env.ADMIN_APP_ORIGIN ? [env.ADMIN_APP_ORIGIN] : [],
+    trustedOrigins: forStaff && env.ADMIN_APP_ORIGIN ? [env.ADMIN_APP_ORIGIN] : [],
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db(), { provider: "mysql", schema, usePlural: true, transaction: true }),
     telemetry: { enabled: false },
 
     advanced: {
-      cookiePrefix: AUTH_COOKIE_PREFIX,
+      cookiePrefix: forStaff ? STAFF_COOKIE_PREFIX : AUTH_COOKIE_PREFIX,
       database: { generateId: "uuid" },
     },
 
@@ -70,6 +81,9 @@ function createAuth() {
     disabledPaths: [
       "/update-user",
       "/delete-user",
+      // Staff accounts are made by an admin (POST /api/admin/staff), who also
+      // changes their email; staff verify nothing here.
+      ...(forStaff ? ["/sign-up/email", "/change-email", "/verify-email", "/send-verification-email"] : []),
       ...[
         "ban-user", "create-user", "get-user", "has-permission", "impersonate-user", "list-user-sessions",
         "list-users", "remove-user", "revoke-user-session", "revoke-user-sessions", "set-role",
@@ -79,6 +93,29 @@ function createAuth() {
 
     databaseHooks: {
       session: {
+        create: {
+          /**
+           * Customers sign in on the website, staff on the admin panel, never
+           * the other way round: an admin is not a customer. This runs after
+           * the password has checked out, so it tells a stranger nothing.
+           */
+          before: async (session) => {
+            const [user] = await db().select({ role: users.role }).from(users).where(eq(users.id, session.userId)).limit(1);
+            const isCustomer = (user?.role ?? CUSTOMER_ROLE) === CUSTOMER_ROLE;
+            if (forStaff && isCustomer) {
+              throw new APIError("FORBIDDEN", {
+                code: "CUSTOMER_ACCOUNT",
+                message: "This is a customer account. Customers sign in on the website.",
+              });
+            }
+            if (!forStaff && !isCustomer) {
+              throw new APIError("FORBIDDEN", {
+                code: "STAFF_ACCOUNT",
+                message: "This is a staff account. Please sign in through the admin panel.",
+              });
+            }
+          },
+        },
         delete: {
           // Closes the sign-in history entry when a session ends (sign-out,
           // password change, revoked by staff).
@@ -96,11 +133,12 @@ function createAuth() {
       additionalFields: {
         phone: { type: "string", required: false, input: true },
       },
-      changeEmail: { enabled: true },
+      changeEmail: { enabled: !forStaff },
     },
 
     emailAndPassword: {
       enabled: true,
+      disableSignUp: forStaff,
       requireEmailVerification: true,
       autoSignIn: false,
       revokeSessionsOnPasswordReset: true,
@@ -206,12 +244,20 @@ function createAuth() {
 export type Auth = ReturnType<typeof createAuth>;
 export type Session = Auth["$Infer"]["Session"];
 
-const globalForAuth = globalThis as typeof globalThis & { __vrhAuth?: Auth };
+const globalForAuth = globalThis as typeof globalThis & { __vrhAuth?: Auth; __vrhStaffAuth?: Auth };
 
-/** The Better Auth instance, created on first use (after the environment is read). */
+/** Customers' sign-in (/api/auth), created on first use (after the environment is read). */
 export function auth(): Auth {
   if (!globalForAuth.__vrhAuth) {
-    globalForAuth.__vrhAuth = createAuth();
+    globalForAuth.__vrhAuth = createAuth("customers");
   }
   return globalForAuth.__vrhAuth;
+}
+
+/** Staff's sign-in for the admin panel (/api/admin/auth), with its own cookie. */
+export function staffAuth(): Auth {
+  if (!globalForAuth.__vrhStaffAuth) {
+    globalForAuth.__vrhStaffAuth = createAuth("staff");
+  }
+  return globalForAuth.__vrhStaffAuth;
 }

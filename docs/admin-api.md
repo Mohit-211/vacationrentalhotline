@@ -4,8 +4,8 @@ For the developers of the admin panel (vrh-admin). The old Node backend (`node.v
 is retired. The site's own app now serves the API, and the admin panel needs changes to use it. Nothing here has been
 changed in vrh-admin itself; this file lists what to change.
 
-Every admin call is under `/api/admin`, plus Better Auth's `/api/auth` for signing in. The API is new and consistent,
-not a copy of the old one, so every screen's calls change. Section 5 maps each old call to its replacement.
+Every admin call is under `/api/admin`, and staff sign in at `/api/admin/auth`. The API is new and consistent, not a
+copy of the old one, so every screen's calls change. Section 5 maps each old call to its replacement.
 
 ## 1. Connecting
 
@@ -27,15 +27,21 @@ everyone else from the panel.
 
 ## 2. Signing in and the session
 
+Staff have their own sign-in, separate from customers': `/api/admin/auth`, with its own httpOnly cookie
+(`vrh_admin.session_token`). Signing in or out of the panel never touches a customer login on the website, even in the
+same browser, and the other way round. Only staff can sign in here (a customer account gets 403 `CUSTOMER_ACCOUNT`),
+and staff can't sign in on the website (403 `STAFF_ACCOUNT`). There's no sign-up: an admin creates staff accounts
+(section 5, Staff).
+
 | Action | Call | Notes |
 | --- | --- | --- |
-| Sign in | `POST /auth/sign-in/email` `{ email, password }` | 200 sets the session cookie (7 days, renewed while used). 401 `INVALID_EMAIL_OR_PASSWORD`; 429 after 3 tries in 10 seconds. Show one generic message for a wrong email or password. |
-| Who am I | `GET /admin/me` | `{ id, name, email, role, roleLabel, permissions }`. 401 = signed out; 403 = a customer account. Call it once after sign-in and on load, not on a timer. |
+| Sign in | `POST /admin/auth/sign-in/email` `{ email, password }` | 200 sets the session cookie (7 days, renewed while used). 401 `INVALID_EMAIL_OR_PASSWORD`; 403 `CUSTOMER_ACCOUNT`; 429 after 3 tries in 10 seconds. Show one generic message for a wrong email or password. |
+| Who am I | `GET /admin/me` | `{ id, name, email, role, roleLabel, permissions }`. 401 = signed out. Call it once after sign-in and on load, not on a timer. |
 | Rename yourself | `PATCH /admin/me` `{ name }` | |
-| Change password | `POST /auth/change-password` `{ currentPassword, newPassword, revokeOtherSessions: true }` | 400 `INVALID_PASSWORD` (wrong current password) or `PASSWORD_TOO_WEAK`. Rule: 8-128 characters with at least one letter and one number. |
-| Change your email | `POST /auth/change-email` `{ newEmail }` | A confirmation link goes to the new address. |
-| Forgot password | `POST /auth/request-password-reset` `{ email, redirectTo }` | `redirectTo` is a page that reads `?token=` (or `?error=INVALID_TOKEN`) and then calls `POST /auth/reset-password` `{ newPassword, token }`. Use the site's `https://vacationrentalhotline.com/reset-password`, or an admin page under `ADMIN_APP_ORIGIN`. |
-| Sign out | `POST /auth/sign-out` | Ends the session on the server too. |
+| Change password | `POST /admin/auth/change-password` `{ currentPassword, newPassword, revokeOtherSessions: true }` | 400 `INVALID_PASSWORD` (wrong current password) or `PASSWORD_TOO_WEAK`. Rule: 8-128 characters with at least one letter and one number. |
+| Change your email | Ask an admin: `PATCH /admin/staff/:id` `{ email }` | Staff can't change their own email. |
+| Forgot password | `POST /admin/auth/request-password-reset` `{ email, redirectTo }` | `redirectTo` is an admin page under `ADMIN_APP_ORIGIN` that reads `?token=` (or `?error=INVALID_TOKEN`) and then calls `POST /admin/auth/reset-password` `{ newPassword, token }`. |
+| Sign out | `POST /admin/auth/sign-out` | Ends the session on the server too. |
 
 Guard every route with `GET /admin/me`, and show menu items and buttons by `permissions` (section 4). Don't rely on
 the menu alone: the API checks every call.

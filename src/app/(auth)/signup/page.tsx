@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import SignUpForm from "@/features/auth/SignUpForm";
-import { currentSession } from "@/server/session";
+import { currentCustomer } from "@/server/session";
 
 export default async function SignUpPage() {
-  // Someone already signed in has nothing to do here.
-  if (await currentSession()) redirect("/dashboard");
+  // A customer already signed in has nothing to do here.
+  if (await currentCustomer()) redirect("/dashboard");
   return <SignUpForm />;
 }

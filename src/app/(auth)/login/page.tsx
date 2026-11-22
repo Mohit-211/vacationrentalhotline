@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import LoginForm from "@/features/auth/LoginForm";
-import { currentSession } from "@/server/session";
+import { currentCustomer } from "@/server/session";
 
 export default async function LoginPage() {
-  // Someone already signed in has nothing to do here.
-  if (await currentSession()) redirect("/dashboard");
+  // A customer already signed in has nothing to do here.
+  if (await currentCustomer()) redirect("/dashboard");
   return <LoginForm />;
 }
