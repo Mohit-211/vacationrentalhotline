@@ -120,6 +120,17 @@ run them at a time, so the server needs no crontab. They remove accounts not ver
 verification link expires), email customers and staff when cover ends, and delete expired tokens and sessions.
 `SCHEDULED_JOBS=off` stops a process running them; `POST /api/jobs/run` with `JOBS_SECRET` runs them on demand.
 
+## Behind a reverse proxy
+
+Sign-in, sign-up, password changes and reset emails are rate-limited per visitor address, read from the
+`X-Forwarded-For` header (for sign-in: 3 tries, then a 10-second pause). The proxy in front of the app must set it
+to the visitor's address. Otherwise every visitor shares one address, and therefore one limit for the whole site.
+With nginx as the only proxy, overwrite the header, so visitors can't send their own to dodge the limit:
+
+```nginx
+proxy_set_header X-Forwarded-For $remote_addr;
+```
+
 ## Project structure
 
 ```
