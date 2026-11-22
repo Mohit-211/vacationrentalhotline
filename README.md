@@ -104,7 +104,14 @@ Setting up a Stripe account (test mode first):
 
 A renewing property stays active for 14 days past its paid-through date while Stripe retries a failed renewal.
 A cancelled renewal keeps the property covered until the end of the year already paid; staff can also end cover
-at once, with or without a refund.
+at once. The app never refunds: refunds are made by hand in Stripe's dashboard, and `charge.refunded` records them
+on the payment. Staff can also give a customer free cover for a set number of properties (see
+`docs/admin-api.md`).
+
+Signing up is free and separate from paying: customers add properties first, then activate them from the
+dashboard or the property's page. Checkout asks only for the card. A Stripe account registered in India rejects
+that (Indian rules need the customer's name and address on payments from abroad), so test with an account
+registered elsewhere, as the live account is.
 
 ## Scheduled jobs
 

@@ -45,6 +45,11 @@ export const roleUpdateSchema = z
   .object({ label: z.string().trim().min(1).max(60).optional(), permissions: permissions.optional() })
   .strict();
 
-export const endCoverSchema = z.object({ refund: z.enum(["none", "prorated", "full"]) }).strict();
+export const freeCoverSchema = z
+  .object({
+    /** The most properties the customer may have, all covered at no charge. */
+    properties: z.number().int("Use a whole number.").min(1, "Allow at least 1 property.").max(1000),
+  })
+  .strict();
 
 export const adminProfileSchema = z.object({ name: personNameSchema }).strict();

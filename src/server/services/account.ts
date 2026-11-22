@@ -1,10 +1,10 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import type { z } from "zod";
 import { isCountryCode, normalizePostalCode } from "@/lib/locations";
 import { accountUpdateSchema, addressProblems } from "@/lib/schemas/account";
 import { db } from "@/server/db";
-import { users } from "@/server/db/schema";
+import { properties, users } from "@/server/db/schema";
 import { invalidFields, zodFields } from "@/server/http";
 
 export type UserRow = typeof users.$inferSelect;
@@ -14,7 +14,7 @@ export type AccountChanges = Partial<
   Pick<UserRow, "name" | "email" | "phone" | "streetAddress" | "city" | "regionCode" | "countryCode" | "postalCode">
 >;
 
-export const serializeAccount = (row: UserRow) => ({
+export const serializeAccount = (row: UserRow, propertyCount = 0) => ({
   id: row.id,
   name: row.name,
   email: row.email,
@@ -25,9 +25,17 @@ export const serializeAccount = (row: UserRow) => ({
   regionCode: row.regionCode,
   countryCode: row.countryCode,
   postalCode: row.postalCode,
+  /** Free cover set by staff: properties covered at no charge, and how many are used. Null: pay as usual. */
+  freeCover: row.freeCoverLimit !== null ? { properties: row.freeCoverLimit, used: propertyCount } : null,
   createdAt: row.createdAt.toISOString(),
 });
 export type AccountJson = ReturnType<typeof serializeAccount>;
+
+/** The account as the account page and dashboard read it. */
+export async function accountJson(row: UserRow): Promise<AccountJson> {
+  const [{ n }] = await db().select({ n: count() }).from(properties).where(eq(properties.userId, row.id));
+  return serializeAccount(row, n);
+}
 
 export async function findUser(userId: string): Promise<UserRow | undefined> {
   const [row] = await db().select().from(users).where(eq(users.id, userId)).limit(1);

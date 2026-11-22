@@ -70,7 +70,7 @@ the menu alone: the API checks every call.
 | `dashboard.view` | The dashboard figures |
 | `customers.view` | Looking up customers, their properties, notes and payments |
 | `customers.manage` | Creating, editing and deleting customers, their properties and notes |
-| `billing.manage` | Cancelling renewals, ending cover, refunds |
+| `billing.manage` | Cancelling renewals, ending cover, free cover |
 | `messages.view` | Reading contact-form messages |
 | `messages.manage` | Deleting contact-form messages |
 | `activity.view` | The sign-in history |
@@ -111,7 +111,9 @@ Paths are relative to the base URL. "Old" is the call the panel makes today.
 | Add properties | `POST /admin/customers/:id/properties` `{ properties: [...] }` | (none) |
 | Delete | `DELETE /admin/customers/:id` | `admin/user/deleteUser` |
 
-- List rows: `{ id, name, email, emailVerified, phone, city, regionCode, countryCode, createdAt, properties: { total, active } }`.
+- List rows: `{ id, name, email, emailVerified, phone, streetAddress, city, regionCode, countryCode, postalCode,
+  freeCover, createdAt, properties: { total, active } }`. `freeCover` is `{ properties }` while the customer has free
+  cover (see below), otherwise null.
 - **New accounts and password resets**: the API generates a password (`Kx7m-Pq2r-Tz9a-Wd4e`) and returns it once as
   `data.password`; it emails it too unless `sendEmail` is false. Show it once in a dialog with a Copy button, so the
   admin can pass it on by hand. Don't store it or show it again; once the dialog closes, it's gone. New accounts are
@@ -132,11 +134,13 @@ Paths are relative to the base URL. "Old" is the call the panel makes today.
 | Notes | `GET`, `POST /admin/properties/:id/notes` `{ body }`; `PATCH`, `DELETE /admin/properties/:id/notes/:noteId` | (in the property) |
 
 Property shape: `{ id, ownerName, ownerEmail, ownerAltEmail, ownerPhone, ownerAltPhone, addressLine1, addressLine2,
-city, regionCode, countryCode, postalCode, fullAddress, status, subscriptionEndsAt, autoRenews, createdAt, updatedAt }`.
+city, regionCode, countryCode, postalCode, fullAddress, status, subscriptionEndsAt, autoRenews, complimentary, createdAt,
+updatedAt }`.
 
 - `status` is `"active"` (covered) or `"inactive"`. The old list showed only active properties; use `status=active`
   for that.
 - `subscriptionEndsAt` is the end of the paid period. `autoRenews` is true while it will renew on that date.
+- `complimentary` is true while the customer's free cover covers the property (it's then active whatever the dates say).
 - The details add `customer`, `notes[]` (each with `author: { id, name, staff }`), `subscription` (`{ status,
   unitAmountCents, renews, canceledAt }`) and `payments[]` (each period it was paid for).
 - Notes written in the panel are signed with the staff member's name; customers write notes on the site too.
@@ -154,15 +158,39 @@ it, both from the property's details:
 | Choice | Call | What happens |
 | --- | --- | --- |
 | **Cancel renewal** | `POST /admin/properties/:id/cancel-renewal` | The property won't renew. It stays covered until `subscriptionEndsAt`, with no refund. This is what a customer can do themselves from the site. |
-| **End cover now** | `POST /admin/properties/:id/end-cover` `{ refund }` | Cover ends immediately and renewal stops. `refund` is `"none"`, `"prorated"` (the unused days of the last payment for this property) or `"full"` (all of it). The response says `refundedCents`. |
+| **End cover now** | `POST /admin/properties/:id/end-cover` (no body) | Cover ends immediately and renewal stops. Nothing is refunded. The response is the property's details. |
 
-- Show "Cancel renewal" while `autoRenews` is true, and "End cover now" while the property is active.
-- Before "End cover now", ask which refund applies and confirm. A refund goes back to the customer's card through
-  Stripe; it can't be undone from the panel.
+- Show "Cancel renewal" while `autoRenews` is true, and "End cover now" while the property is active and not
+  `complimentary`. Confirm before ending cover: to get it back, the customer has to pay again.
 - The customer gets an email when cover ends (on the next scheduled run, within 15 minutes), with a copy to
   info@vacationrentalhotline.com.
-- 409 `NOT_RENEWING` means there's nothing to cancel. 502 or 503 means Stripe failed or isn't set up.
-- Refunds made directly in Stripe's dashboard also show up on the payment (`refundedCents`, `status`).
+- 409 codes: `NOT_RENEWING` (nothing to cancel), `NOT_COVERED` (nothing to end), `COVERED_FREE` (the property is
+  covered by the customer's free cover: turn that off instead). 502 or 503 means Stripe failed or isn't set up.
+
+**Refunds are made by hand, in Stripe's dashboard** (Payments, open the payment, Refund). The app never refunds on
+its own. Stripe tells the app about the refund, and the payment then shows it (`refundedCents`, and `status`
+`partially_refunded` or `refunded`). Refunding doesn't end cover: end it here too if it should stop.
+
+### Free cover (`billing.manage`)
+
+Staff can cover a customer's properties at no charge, up to a number of properties they choose. It stays on until
+someone turns it off.
+
+| Action | Call |
+| --- | --- |
+| Turn on, or change the number | `PUT /admin/customers/:id/free-cover` `{ properties }` (1-1000) |
+| Turn off | `DELETE /admin/customers/:id/free-cover` |
+
+- While it's on, every property the customer has is active and `complimentary`, including ones added later, and they
+  can't have more than `properties`. Adding past that (on the site or here) fails with 409 `FREE_COVER_LIMIT`. The
+  site shows the customer a "Free cover" notice and no payment buttons.
+- `PUT` returns the customer's details. 409 `TOO_MANY_PROPERTIES` means they already have more properties than the
+  number given: allow more, or delete some first.
+- Turning it off: properties no payment covers become inactive at once, and the customer gets the cover-ended email
+  (copy to info@vacationrentalhotline.com). The response is `{ uncovered, customer }`, where `uncovered` is how many
+  lost cover. 409 `NO_FREE_COVER` if it wasn't on.
+- A paid subscription the customer already had keeps renewing, and charging, while free cover is on. Cancel its
+  renewal if they shouldn't pay any more.
 
 ### Payments (`customers.view`)
 

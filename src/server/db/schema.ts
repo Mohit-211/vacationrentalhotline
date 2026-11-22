@@ -94,6 +94,11 @@ export const users = mysqlTable(
     countryCode: char("country_code", { length: 2 }),
     postalCode: varchar("postal_code", { length: 10 }),
     stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+    /**
+     * Free cover, set by staff: the most properties this customer may have,
+     * all covered at no charge. Null when the customer pays as usual.
+     */
+    freeCoverLimit: int("free_cover_limit", { unsigned: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -245,6 +250,8 @@ export const properties = mysqlTable(
      * subscriptionEndsAt, as Stripe retries a failed renewal.
      */
     autoRenews: boolean("auto_renews").notNull().default(false),
+    /** Covered at no charge because the owner's account has free cover (users.free_cover_limit). */
+    complimentary: boolean("complimentary").notNull().default(false),
     /** When the "your cover has ended" email went out; cleared when cover is extended. */
     expiryNoticeSentAt: utcDateTime("expiry_notice_sent_at"),
     createdAt: createdAt(),

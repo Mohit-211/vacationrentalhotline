@@ -1,12 +1,13 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import Stripe from "stripe";
 import { formatAddress } from "@/lib/locations";
 import { HOTLINE_PHONE, PRICING, quoteFor, type Quote } from "@/lib/pricing";
 import { db } from "@/server/db";
 import { paymentItems, payments, properties, subscriptionItems, subscriptions, users } from "@/server/db/schema";
 import { sendEmailInBackground } from "@/server/email/send";
-import { receiptMessage } from "@/server/email/templates";
+import { coverEndedMessage, receiptMessage, staffCoverEndedMessage } from "@/server/email/templates";
+import { serverEnv } from "@/server/env";
 import { HttpError, notFound } from "@/server/http";
 import { COVER_PRODUCT_ID, ensureCoverProduct, fromUnix, fromUnixOrNull, idOf, stripe } from "@/server/stripe";
 import { propertyStatus, type PropertyRow } from "./properties";
@@ -497,20 +498,20 @@ export async function stopRenewal(property: PropertyRow, actorId: string): Promi
   await stopRenewingItems([item], actorId);
 }
 
-export type RefundChoice = "none" | "prorated" | "full";
-
 /**
- * Staff only: ends a property's cover at once, stops its renewal, and
- * optionally refunds its share of the last payment (in full, or for the
- * unused days).
+ * Staff only: ends a property's cover at once and stops its renewal. Nothing
+ * is refunded here: refunds are made by hand in Stripe's dashboard, and the
+ * webhook (charge.refunded) records them on the payment.
  */
-export async function endCoverNow(
-  property: PropertyRow,
-  actorId: string,
-  refund: RefundChoice,
-): Promise<{ refundedCents: number }> {
-  const now = new Date();
+export async function endCoverNow(property: PropertyRow, actorId: string): Promise<void> {
+  if (property.complimentary) {
+    throw new HttpError(409, "COVERED_FREE", "This property is covered free. To end that, remove the customer's free cover.");
+  }
   const match = await renewingItem(property.id);
+  // Without this, the cover-ended email would go out for cover that never existed.
+  if (!match && propertyStatus(property) !== "active") {
+    throw new HttpError(409, "NOT_COVERED", "This property isn't covered.");
+  }
   if (match) {
     const { item, subscription } = match;
     const others = await db()
@@ -530,47 +531,74 @@ export async function endCoverNow(
     }
     await stopRenewingItems([item], actorId);
   }
-
-  let refundedCents = 0;
-  if (refund !== "none") {
-    // The latest payment that covered this property.
-    const [latest] = await db()
-      .select({ item: paymentItems, payment: payments })
-      .from(paymentItems)
-      .innerJoin(payments, eq(paymentItems.paymentId, payments.id))
-      .where(and(eq(paymentItems.propertyId, property.id), inArray(payments.status, ["paid", "partially_refunded"])))
-      .orderBy(desc(paymentItems.periodEnd))
-      .limit(1);
-    if (latest) {
-      const { item, payment } = latest;
-      const span = item.periodEnd.getTime() - item.periodStart.getTime();
-      const unused = Math.max(0, Math.min(1, (item.periodEnd.getTime() - now.getTime()) / span));
-      const wanted = refund === "full" ? item.amountCents : Math.floor(item.amountCents * unused);
-      const amount = Math.min(wanted, payment.amountCents - payment.refundedCents);
-      if (amount > 0) {
-        const paymentIntent = payment.stripePaymentIntentId ?? (await paymentIntentOf(payment.stripeInvoiceId));
-        if (!paymentIntent) throw new HttpError(409, "NOT_REFUNDABLE", "Stripe has no card payment to refund for this property.");
-        await stripe().refunds.create({ payment_intent: paymentIntent, amount, metadata: { propertyId: property.id } });
-        const total = payment.refundedCents + amount;
-        await db()
-          .update(payments)
-          .set({
-            stripePaymentIntentId: paymentIntent,
-            refundedCents: total,
-            status: total >= payment.amountCents ? "refunded" : "partially_refunded",
-          })
-          .where(eq(payments.id, payment.id));
-        refundedCents = amount;
-      }
-    }
-  }
-
   // The scheduled job then emails the customer (and staff) that cover ended.
   await db()
     .update(properties)
-    .set({ subscriptionEndsAt: now, autoRenews: false, expiryNoticeSentAt: null })
+    .set({ subscriptionEndsAt: new Date(), autoRenews: false, expiryNoticeSentAt: null })
     .where(eq(properties.id, property.id));
-  return { refundedCents };
+}
+
+// ---- Free cover ------------------------------------------------------------------
+
+/**
+ * Staff: gives a customer free cover for up to `limit` properties. Every
+ * property they have or add is covered at no charge, and they can't have
+ * more than `limit`. Paid subscriptions they already have keep renewing
+ * until someone cancels them.
+ */
+export async function setFreeCover(customerId: string, limit: number): Promise<void> {
+  await db().transaction(async (tx) => {
+    // The same lock as adding properties, so none slip in past the limit.
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, customerId)).for("update");
+    const [{ existing }] = await tx.select({ existing: count() }).from(properties).where(eq(properties.userId, customerId));
+    if (existing > limit) {
+      throw new HttpError(
+        409,
+        "TOO_MANY_PROPERTIES",
+        `This customer already has ${existing} properties. Allow at least ${existing}, or delete some first.`,
+        { properties: [`Allow at least ${existing}.`] },
+      );
+    }
+    await tx.update(users).set({ freeCoverLimit: limit }).where(eq(users.id, customerId));
+    await tx
+      .update(properties)
+      .set({ complimentary: true, expiryNoticeSentAt: null })
+      .where(eq(properties.userId, customerId));
+  });
+}
+
+/**
+ * Staff: ends a customer's free cover. Their properties need paying for
+ * again; those no longer covered by a payment become inactive at once, and
+ * the customer (with a copy to staff) is told.
+ */
+export async function removeFreeCover(customerId: string): Promise<{ uncovered: number }> {
+  const now = new Date();
+  const { customer, uncovered } = await db().transaction(async (tx) => {
+    const [customer] = await tx.select().from(users).where(eq(users.id, customerId)).for("update");
+    if (!customer) throw notFound("Customer");
+    // Otherwise the customer would be told cover ended on properties that were never free.
+    if (customer.freeCoverLimit === null) throw new HttpError(409, "NO_FREE_COVER", "This customer doesn't have free cover.");
+    await tx.update(users).set({ freeCoverLimit: null }).where(eq(users.id, customerId));
+    await tx.update(properties).set({ complimentary: false }).where(eq(properties.userId, customerId));
+
+    const uncovered = (await tx.select().from(properties).where(eq(properties.userId, customerId))).filter(
+      (row) => propertyStatus(row, now) === "inactive",
+    );
+    if (uncovered.length > 0) {
+      await tx
+        .update(properties)
+        .set({ expiryNoticeSentAt: now })
+        .where(inArray(properties.id, uncovered.map((row) => row.id)));
+    }
+    return { customer, uncovered };
+  });
+  if (uncovered.length > 0) {
+    const items = uncovered.map((row) => ({ label: formatAddress(row), endedAt: now }));
+    sendEmailInBackground(coverEndedMessage(customer.email, customer.name, items));
+    sendEmailInBackground(staffCoverEndedMessage(serverEnv().STAFF_EMAIL, customer, items));
+  }
+  return { uncovered: uncovered.length };
 }
 
 /** Whether the user owns a subscription (for the post-payment sync). */

@@ -45,6 +45,8 @@ export function serializeCustomer(user: UserRow, counts?: { total: number; activ
     regionCode: user.regionCode,
     countryCode: user.countryCode,
     postalCode: user.postalCode,
+    /** Set by staff: up to `properties` properties covered at no charge. Null when the customer pays. */
+    freeCover: user.freeCoverLimit !== null ? { properties: user.freeCoverLimit } : null,
     createdAt: user.createdAt.toISOString(),
     ...(counts ? { properties: counts } : {}),
   };

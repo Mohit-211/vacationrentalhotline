@@ -1,9 +1,9 @@
 import "server-only";
-import { and, asc, desc, eq, gt, inArray, isNull, not, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, not, or, type SQL } from "drizzle-orm";
 import { formatAddress } from "@/lib/locations";
 import { propertyFieldsSchema, propertyInputSchema, type PropertyValues } from "@/lib/schemas/property";
 import { db } from "@/server/db";
-import { properties, propertyNotes } from "@/server/db/schema";
+import { properties, propertyNotes, users } from "@/server/db/schema";
 import { HttpError, invalidFields, zodFields } from "@/server/http";
 
 export type PropertyRow = typeof properties.$inferSelect;
@@ -21,9 +21,10 @@ export const RENEWAL_GRACE_DAYS = 14;
 const graceMs = RENEWAL_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
 export function propertyStatus(
-  row: Pick<PropertyRow, "subscriptionEndsAt" | "autoRenews">,
+  row: Pick<PropertyRow, "subscriptionEndsAt" | "autoRenews" | "complimentary">,
   now = new Date(),
 ): PropertyStatus {
+  if (row.complimentary) return "active";
   const end = row.subscriptionEndsAt?.getTime();
   if (end === undefined) return "inactive";
   if (end > now.getTime()) return "active";
@@ -50,6 +51,8 @@ export function serializeProperty(row: PropertyRow, now = new Date()) {
     subscriptionEndsAt: row.subscriptionEndsAt?.toISOString() ?? null,
     /** Renews automatically on subscriptionEndsAt; false once renewal is cancelled. */
     autoRenews: row.autoRenews,
+    /** Covered at no charge: the account has free cover. */
+    complimentary: row.complimentary,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -96,6 +99,7 @@ const toColumns = (values: PropertyValues) => ({
 /** The SQL form of propertyStatus. */
 export function statusCondition(status: PropertyStatus, now = new Date()): SQL {
   const active = or(
+    eq(properties.complimentary, true),
     gt(properties.subscriptionEndsAt, now),
     and(eq(properties.autoRenews, true), gt(properties.subscriptionEndsAt, new Date(now.getTime() - graceMs))),
   )!;
@@ -123,10 +127,36 @@ export async function findUserProperty(userId: string, propertyId: string): Prom
   return row;
 }
 
-/** Creates the properties in one statement: all of them are saved, or none. */
+/**
+ * Creates the properties in one statement: all of them are saved, or none.
+ * On an account with free cover they're covered at no charge, and the
+ * account can't go past its limit.
+ */
 export async function createUserProperties(userId: string, items: PropertyValues[]): Promise<PropertyJson[]> {
-  const rows = items.map((values) => ({ id: crypto.randomUUID(), userId, ...toColumns(values) }));
-  await db().insert(properties).values(rows);
+  const rows = await db().transaction(async (tx) => {
+    // Locking the account means two requests at once can't both fit under
+    // the free cover limit, and free cover can't change halfway through.
+    const [owner] = await tx
+      .select({ freeCoverLimit: users.freeCoverLimit })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for("update");
+    const limit = owner?.freeCoverLimit ?? null;
+    if (limit !== null) {
+      const [{ existing }] = await tx.select({ existing: count() }).from(properties).where(eq(properties.userId, userId));
+      if (existing + items.length > limit) {
+        const left = Math.max(0, limit - existing);
+        throw new HttpError(
+          409,
+          "FREE_COVER_LIMIT",
+          `This account's free cover includes ${limit} ${limit === 1 ? "property" : "properties"}; ${left === 0 ? "no more can be added" : `you can add ${left} more`}. Contact us to change it.`,
+        );
+      }
+    }
+    const rows = items.map((values) => ({ id: crypto.randomUUID(), userId, complimentary: limit !== null, ...toColumns(values) }));
+    await tx.insert(properties).values(rows);
+    return rows;
+  });
   const saved = await db()
     .select()
     .from(properties)

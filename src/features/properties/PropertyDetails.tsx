@@ -7,7 +7,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, EllipsisVertical, Pencil, Plus, StickyNote, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, CircleAlert, EllipsisVertical, Pencil, Plus, StickyNote, Trash2 } from "lucide-react";
+import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -33,7 +34,8 @@ import { cancelRenewal } from "@/lib/api/checkout";
 import { deleteProperties, getProperty } from "@/lib/api/properties";
 import { addNote, deleteNote, updateNote } from "@/lib/api/notes";
 import type { NoteInput, PropertyWithNotes } from "@/lib/api/types";
-import { coverLabel } from "@/features/dashboard/Dashboard";
+import { CheckoutDialog, useCheckout } from "@/features/checkout/CheckoutDialog";
+import { coverLabel, priceSummary } from "@/features/dashboard/Dashboard";
 import { findCountry, findRegion } from "@/lib/locations";
 import { useIsClient } from "@/lib/useIsClient";
 
@@ -70,6 +72,7 @@ const PropertyDetails = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const checkout = useCheckout(() => loadProperty(id, setData));
   const {
     register,
     handleSubmit,
@@ -180,7 +183,14 @@ const PropertyDetails = () => {
   const subscriptionRows: [string, ReactNode][] = [
     ["Subscription Purchased", data ? (data.status === "active" ? "Active Properties" : "Inactive Properties") : "---"],
     ["Expiry Date", data?.subscriptionEndsAt?.split("T")[0] ?? "---"],
-    ["Validity", data?.status === "active" ? `1 year, ${coverLabel(data).toLowerCase()}` : "1 year"],
+    [
+      "Validity",
+      data?.complimentary
+        ? "Free cover (no charge)"
+        : data?.status === "active"
+          ? `1 year, ${coverLabel(data).toLowerCase()}`
+          : "1 year",
+    ],
   ];
   const notes = data?.notes ?? [];
 
@@ -208,6 +218,11 @@ const PropertyDetails = () => {
         }
         actions={
           <>
+            {data?.status === "inactive" && (
+              <Button variant="secondary" disabled={checkout.starting} onClick={() => checkout.start([id])}>
+                Activate
+              </Button>
+            )}
             <Button variant="outline" onClick={() => toggleNoteDialog(true)}>
               <Plus aria-hidden="true" />
               Add a Note
@@ -240,6 +255,16 @@ const PropertyDetails = () => {
           </>
         }
       />
+
+      {data?.status === "inactive" && (
+        <Alert variant="info">
+          <CircleAlert aria-hidden="true" />
+          <div>
+            <p className="font-semibold">Not covered yet</p>
+            <p>We don&apos;t answer calls for this property until it&apos;s activated. {priceSummary()}</p>
+          </div>
+        </Alert>
+      )}
 
       <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-6 text-lg font-bold">Property</h2>
@@ -313,6 +338,7 @@ const PropertyDetails = () => {
         )}
       </section>
 
+      <CheckoutDialog {...checkout.dialog} />
       <ConfirmDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
