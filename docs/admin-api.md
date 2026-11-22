@@ -57,8 +57,9 @@ the menu alone: the API checks every call.
 
 - **Paging and search**: lists take `?page=1&pageSize=25` (at most 100) and usually `search=`. They are filtered and
   paged on the server: don't download everything and page in the browser.
-- **Ids** are UUID strings. **Dates** are ISO 8601 in UTC (`2027-11-22T10:15:00.000Z`). **Money** is in cents:
-  `25000` = $250.00.
+- **Ids** are UUID strings. **Dates** are ISO 8601 in UTC (`2027-11-22T10:15:00.000Z`). Show them as MM/DD/YYYY
+  in US Eastern Time (`America/New_York`, the business's Florida time zone), as the site and its emails do:
+  `11/22/2027`. **Money** is in cents: `25000` = $250.00.
 - **Field names** are camelCase (`ownerEmail`), not the old snake_case (`property_owner_email_1`).
 - **Countries and states** are ISO codes: `countryCode` `"US"` or `"CA"`, and `regionCode` such as `"TX"` or `"ON"`.
   `GET /locations` returns the names. The city is free text.
@@ -97,7 +98,7 @@ Paths are relative to the base URL. "Old" is the call the panel makes today.
 | `revenue.totalCents`, `.periodCents`, `.periodPayments` | Money received, less refunds: all time and in the period |
 | `messages.total`, `messages.new` | Contact-form messages |
 | `topCustomers[]` | The 5 customers with the most active properties: `{ id, name, email, activeProperties }` |
-| `daily[]` | One entry per day (UTC): `{ date, newCustomers, newProperties, revenueCents }`, for charts |
+| `daily[]` | One entry per US Eastern day (`date` is `YYYY-MM-DD`): `{ date, newCustomers, newProperties, revenueCents }`, for charts |
 
 ### Customers (`customers.view`; changes need `customers.manage`)
 

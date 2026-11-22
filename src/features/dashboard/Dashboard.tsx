@@ -24,11 +24,11 @@ import { cancelRenewal } from "@/lib/api/checkout";
 import { deleteProperties, listProperties } from "@/lib/api/properties";
 import type { Account, Property, PropertyStatus } from "@/lib/api/types";
 import { formatPrice, PRICING } from "@/lib/pricing";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/dates";
 
 const column = dataTableColumns<Property>();
 
-/** "Free cover", "Renews Nov 22, 2027" or "Ends Nov 22, 2027". */
+/** "Free cover", "Renews 11/22/2027" or "Ends 11/22/2027". */
 export const coverLabel = (property: Pick<Property, "subscriptionEndsAt" | "autoRenews" | "complimentary">) => {
   if (property.complimentary) return "Free cover";
   if (!property.subscriptionEndsAt) return "—";

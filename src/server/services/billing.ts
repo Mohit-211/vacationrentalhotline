@@ -1,6 +1,7 @@
 import "server-only";
 import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import Stripe from "stripe";
+import { formatDate } from "@/lib/dates";
 import { formatAddress } from "@/lib/locations";
 import { HOTLINE_PHONE, PRICING, quoteFor, type Quote } from "@/lib/pricing";
 import { db } from "@/server/db";
@@ -52,8 +53,8 @@ async function checkoutProperties(userId: string, propertyIds: string[]): Promis
   if (rows.length !== ids.length) throw notFound("Property");
   const covered = rows.find((row) => propertyStatus(row) === "active");
   if (covered) {
-    const until = covered.subscriptionEndsAt?.toISOString().slice(0, 10);
-    throw new HttpError(409, "ALREADY_COVERED", `${formatAddress(covered)} is already covered until ${until}.`);
+    const until = covered.subscriptionEndsAt ? ` until ${formatDate(covered.subscriptionEndsAt)}` : "";
+    throw new HttpError(409, "ALREADY_COVERED", `${formatAddress(covered)} is already covered${until}.`);
   }
   return rows;
 }

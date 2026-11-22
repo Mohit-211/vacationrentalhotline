@@ -1,4 +1,5 @@
 import "server-only";
+import { formatDate } from "@/lib/dates";
 import { formatPrice } from "@/lib/pricing";
 import { serverEnv } from "@/server/env";
 import type { EmailMessage } from "./send";
@@ -179,9 +180,6 @@ export function emailChangedMessage(to: string, name: string, newEmail: string):
   });
 }
 
-const longDate = (date: Date) =>
-  date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
-
 export interface ReceiptDetails {
   amountCents: number;
   /** A yearly renewal rather than a first purchase. */
@@ -203,7 +201,7 @@ export function receiptMessage(to: string, name: string, receipt: ReceiptDetails
       `We received your payment of ${formatPrice(receipt.amountCents)}. These properties are covered:`,
     ],
     list: receipt.items.map(
-      (item) => `${item.label}: ${formatPrice(item.amountCents)}, covered until ${longDate(item.paidThrough)}`,
+      (item) => `${item.label}: ${formatPrice(item.amountCents)}, covered until ${formatDate(item.paidThrough)}`,
     ),
     action: receipt.receiptUrl ? { label: "View receipt", url: receipt.receiptUrl } : undefined,
     footnote: renews
@@ -226,7 +224,7 @@ export function coverEndedMessage(to: string, name: string, items: EndedCover[])
       greeting(name),
       `We no longer answer calls for ${items.length === 1 ? "this property" : "these properties"}:`,
     ],
-    list: items.map((item) => `${item.label} (ended ${longDate(item.endedAt)})`),
+    list: items.map((item) => `${item.label} (ended ${formatDate(item.endedAt)})`),
     action: { label: "Renew in your dashboard", url: `${serverEnv().APP_URL}/dashboard` },
     footnote: "If you think this is a mistake, reply to this email or call us.",
   });
@@ -242,7 +240,7 @@ export function staffCoverEndedMessage(
     subject: `Cover ended: ${customer.name} (${items.length} ${items.length === 1 ? "property" : "properties"})`,
     heading: "A customer's cover has ended",
     paragraphs: [`Hotline cover has ended for ${customer.name} (${customer.email}):`],
-    list: items.map((item) => `${item.label} (ended ${longDate(item.endedAt)})`),
+    list: items.map((item) => `${item.label} (ended ${formatDate(item.endedAt)})`),
   });
 }
 

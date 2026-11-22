@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, count, desc, eq, gt, inArray, isNull, not, or, type SQL } from "drizzle-orm";
+import { formatDate } from "@/lib/dates";
 import { formatAddress } from "@/lib/locations";
 import { propertyFieldsSchema, propertyInputSchema, type PropertyValues } from "@/lib/schemas/property";
 import { db } from "@/server/db";
@@ -233,7 +234,7 @@ async function deletePropertiesWhere(owned: SQL): Promise<number> {
     throw new HttpError(
       409,
       "PROPERTY_COVERED",
-      `${formatAddress(covered)} is covered until ${covered.subscriptionEndsAt?.toISOString().slice(0, 10)}. Cancel its renewal; you can delete it once the cover ends.`,
+      `${formatAddress(covered)} is covered${covered.subscriptionEndsAt ? ` until ${formatDate(covered.subscriptionEndsAt)}` : ""}. Cancel its renewal; you can delete it once the cover ends.`,
     );
   }
   const [result] = await db().delete(properties).where(owned);

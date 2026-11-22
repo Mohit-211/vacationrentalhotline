@@ -38,7 +38,7 @@ import { CheckoutDialog, useCheckout } from "@/features/checkout/CheckoutDialog"
 import { coverLabel, priceSummary } from "@/features/dashboard/Dashboard";
 import { findCountry, findRegion } from "@/lib/locations";
 import { useIsClient } from "@/lib/useIsClient";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/dates";
 
 // The same rule as the API's (src/lib/schemas/note.ts).
 const noteSchema = z.object({
