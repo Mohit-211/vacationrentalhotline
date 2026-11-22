@@ -135,10 +135,8 @@
     text-wrap: pretty;
   }
 
-  ::selection {
-    background-color: var(--color-primary-soft);
-    color: var(--color-foreground);
-  }
+  /* No custom ::selection colour: the browser's own highlight stays visible
+     everywhere, including on Chrome's light-blue autofilled fields. */
 
   ::placeholder {
     color: var(--color-muted-foreground);
@@ -150,6 +148,9 @@
     cursor: pointer;
   }
 
+  /* Focus rings are outlines. Don't add `outline-none` to a control that
+     styles its ring with `focus-visible:outline-*`: in Tailwind 4 it also sets
+     --tw-outline-style to none, and the ring then never shows. */
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
