@@ -53,6 +53,8 @@ const Dashboard = () => {
   const [status, setStatus] = useState<PropertyStatus>("inactive");
   const [renewalToCancel, setRenewalToCancel] = useState<Property>();
   const [cancelLoading, setCancelLoading] = useState(false);
+  // Properties waiting for the user to confirm their deletion.
+  const [toDelete, setToDelete] = useState<string[]>();
   const [deleteLoading, setDeleteLoading] = useState(false);
   const freeCover = account?.freeCover ?? null;
   const atFreeCoverLimit = freeCover !== null && freeCover.used >= freeCover.properties;
@@ -110,13 +112,14 @@ const Dashboard = () => {
     }
   };
 
-  const handleDeleteProperty = async (propertyId?: string) => {
+  const confirmDelete = async () => {
+    if (!toDelete) return;
     setDeleteLoading(true);
-    const ids = selectedIds.length === 0 ? [propertyId as string] : selectedIds;
     try {
-      const res = await deleteProperties(ids);
+      const res = await deleteProperties(toDelete);
       const { deleted } = res.data.data;
       toast.success(deleted === 1 ? "Property deleted." : `${deleted} properties deleted.`);
+      setToDelete(undefined);
       setSelectedIds([]);
       reloadProperties(true);
     } catch {
@@ -196,7 +199,7 @@ const Dashboard = () => {
                 <DropdownMenuContent>
                   <DropdownMenuItem onSelect={() => router.push(`/properties/${row.original.id}/edit`)}>Edit</DropdownMenuItem>
                   {status !== "active" && (
-                    <DropdownMenuItem variant="danger" onSelect={() => handleDeleteProperty(row.original.id)}>
+                    <DropdownMenuItem variant="danger" onSelect={() => setToDelete([row.original.id])}>
                       Delete
                     </DropdownMenuItem>
                   )}
@@ -247,10 +250,9 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 className="text-danger"
-                onClick={() => handleDeleteProperty()}
+                onClick={() => setToDelete(selectedIds)}
                 disabled={selectedIds.length === 0}
               >
-                {deleteLoading && <Spinner label="Deleting" />}
                 Delete
               </Button>
             )}
@@ -329,6 +331,20 @@ const Dashboard = () => {
       </Tabs>
 
       <CheckoutDialog {...checkout.dialog} />
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        onOpenChange={(open) => !open && setToDelete(undefined)}
+        title={toDelete && toDelete.length > 1 ? `Delete ${toDelete.length} properties?` : "Delete this property?"}
+        description={
+          toDelete?.length === 1
+            ? `${data.find((p) => p.id === toDelete[0])?.fullAddress ?? "This property"} and its notes will be deleted. This can't be undone.`
+            : `These ${toDelete?.length ?? 0} properties and their notes will be deleted. This can't be undone.`
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleteLoading}
+        onConfirm={confirmDelete}
+      />
       <ConfirmDialog
         open={Boolean(renewalToCancel)}
         onOpenChange={(open) => !open && setRenewalToCancel(undefined)}

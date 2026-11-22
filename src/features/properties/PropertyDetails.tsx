@@ -72,13 +72,16 @@ const PropertyDetails = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  // Deleting the property or one of its notes asks first.
+  const [toDelete, setToDelete] = useState<{ noteId: string } | "property">();
+  const [deleting, setDeleting] = useState(false);
   const checkout = useCheckout(() => loadProperty(id, setData));
   const {
     register,
     handleSubmit,
     reset,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<NoteInput>({ resolver: zodResolver(noteSchema), mode: "onChange", defaultValues: { body: "" } });
 
   useEffect(() => {
@@ -121,13 +124,10 @@ const PropertyDetails = () => {
   };
 
   const handleDeleteNote = async (noteId: string) => {
-    try {
-      await deleteNote(id, noteId);
-      toast.success("Note deleted successfully");
-      loadProperty(id, setData);
-    } catch {
-      // The API client has already shown the error.
-    }
+    await deleteNote(id, noteId);
+    toast.success("Note deleted successfully");
+    setToDelete(undefined);
+    loadProperty(id, setData);
   };
 
   const confirmCancelRenewal = async () => {
@@ -145,15 +145,23 @@ const PropertyDetails = () => {
   };
 
   const handleEditProperty = () => router.push(`/properties/${id}/edit`);
-  const handleDeleteProperty = () => {
-    deleteProperties([id])
-      .then(() => {
-        toast.success("Property deleted.");
-        router.push("/dashboard");
-      })
-      .catch(() => {
-        // The API client has already shown the error.
-      });
+  const handleDeleteProperty = async () => {
+    await deleteProperties([id]);
+    toast.success("Property deleted.");
+    router.push("/dashboard");
+  };
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      if (toDelete === "property") await handleDeleteProperty();
+      else await handleDeleteNote(toDelete.noteId);
+    } catch {
+      // The API client has already shown the error.
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const value = (v: unknown) => (v === undefined || v === null ? "---" : String(v));
@@ -245,7 +253,7 @@ const PropertyDetails = () => {
                   </DropdownMenuItem>
                 )}
                 {data?.status !== "active" && (
-                  <DropdownMenuItem variant="danger" onSelect={handleDeleteProperty}>
+                  <DropdownMenuItem variant="danger" onSelect={() => setToDelete("property")}>
                     <Trash2 aria-hidden="true" />
                     Delete
                   </DropdownMenuItem>
@@ -317,7 +325,7 @@ const PropertyDetails = () => {
                       <Pencil aria-hidden="true" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem variant="danger" onSelect={() => handleDeleteNote(item.id)}>
+                    <DropdownMenuItem variant="danger" onSelect={() => setToDelete({ noteId: item.id })}>
                       <Trash2 aria-hidden="true" />
                       Delete
                     </DropdownMenuItem>
@@ -351,6 +359,21 @@ const PropertyDetails = () => {
         onConfirm={confirmCancelRenewal}
       />
 
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        onOpenChange={(open) => !open && setToDelete(undefined)}
+        title={toDelete === "property" ? "Delete this property?" : "Delete this note?"}
+        description={
+          toDelete === "property"
+            ? `${data?.fullAddress ?? "This property"} and its notes will be deleted. This can't be undone.`
+            : "The note will be deleted. This can't be undone."
+        }
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+        onConfirm={confirmDelete}
+      />
+
       <Dialog open={noteDialogOpen} onOpenChange={(open) => !open && toggleNoteDialog(false)}>
         <DialogContent>
           <DialogHeader>
@@ -365,7 +388,7 @@ const PropertyDetails = () => {
             <Button variant="outline" onClick={() => toggleNoteDialog(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="note-form">
+            <Button type="submit" form="note-form" loading={isSubmitting}>
               Save
             </Button>
           </DialogFooter>
