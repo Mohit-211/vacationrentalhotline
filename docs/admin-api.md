@@ -135,8 +135,8 @@ Paths are relative to the base URL. "Old" is the call the panel makes today.
 | Notes | `GET`, `POST /admin/properties/:id/notes` `{ body }`; `PATCH`, `DELETE /admin/properties/:id/notes/:noteId` | (in the property) |
 
 Property shape: `{ id, ownerName, ownerEmail, ownerAltEmail, ownerPhone, ownerAltPhone, addressLine1, addressLine2,
-city, regionCode, countryCode, postalCode, fullAddress, status, subscriptionEndsAt, autoRenews, complimentary, createdAt,
-updatedAt }`.
+city, regionCode, countryCode, postalCode, fullAddress, status, subscriptionEndsAt, autoRenews, complimentary, canDelete,
+createdAt, updatedAt }`.
 
 - `status` is `"active"` (covered) or `"inactive"`. The old list showed only active properties; use `status=active`
   for that.
@@ -145,7 +145,8 @@ updatedAt }`.
 - The details add `customer`, `notes[]` (each with `author: { id, name, staff }`), `subscription` (`{ status,
   unitAmountCents, renews, canceledAt }`) and `payments[]` (each period it was paid for).
 - Notes written in the panel are signed with the staff member's name; customers write notes on the site too.
-- A covered property can't be deleted (409 `PROPERTY_COVERED`): end its cover first.
+- A property with paid cover running can't be deleted (409 `PROPERTY_COVERED`): cancel its renewal and wait, or end
+  its cover first. Free cover doesn't stop a delete. `canDelete` says which, so show Delete only when it's true.
 - Old field names: `property_owner_name` → `ownerName`, `property_owner_email_1/_2` → `ownerEmail` / `ownerAltEmail`,
   `property_owner_mobile_number_1/_2` → `ownerPhone` / `ownerAltPhone` (E.164, e.g. `+15125550111`),
   `address_line_1/2` → `addressLine1/2`, `zip_code` → `postalCode`, `country` / `state` (names) → `countryCode` /

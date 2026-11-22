@@ -21,15 +21,20 @@ export const PROPERTY_STATUSES = ["active", "inactive"] as const satisfies reado
 export const RENEWAL_GRACE_DAYS = 14;
 const graceMs = RENEWAL_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
+/** Paid cover is running: inside the paid year, or just past it while a renewal is retried. */
+export function hasPaidCover(row: Pick<PropertyRow, "subscriptionEndsAt" | "autoRenews">, now = new Date()): boolean {
+  const end = row.subscriptionEndsAt?.getTime();
+  if (end === undefined) return false;
+  if (end > now.getTime()) return true;
+  return row.autoRenews && end + graceMs > now.getTime();
+}
+
+/** Active while paid cover runs or the account's free cover covers it. */
 export function propertyStatus(
   row: Pick<PropertyRow, "subscriptionEndsAt" | "autoRenews" | "complimentary">,
   now = new Date(),
 ): PropertyStatus {
-  if (row.complimentary) return "active";
-  const end = row.subscriptionEndsAt?.getTime();
-  if (end === undefined) return "inactive";
-  if (end > now.getTime()) return "active";
-  return row.autoRenews && end + graceMs > now.getTime() ? "active" : "inactive";
+  return row.complimentary || hasPaidCover(row, now) ? "active" : "inactive";
 }
 
 export function serializeProperty(row: PropertyRow, now = new Date()) {
@@ -54,6 +59,8 @@ export function serializeProperty(row: PropertyRow, now = new Date()) {
     autoRenews: row.autoRenews,
     /** Covered at no charge: the account has free cover. */
     complimentary: row.complimentary,
+    /** Only running paid cover stops a delete; free cover doesn't. */
+    canDelete: !hasPaidCover(row, now),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -97,14 +104,20 @@ const toColumns = (values: PropertyValues) => ({
   postalCode: values.postalCode,
 });
 
-/** The SQL form of propertyStatus. */
-export function statusCondition(status: PropertyStatus, now = new Date()): SQL {
-  const active = or(
-    eq(properties.complimentary, true),
+/** The SQL form of hasPaidCover. NULL (not false) when there's no paid date. */
+function paidCoverCondition(now: Date): SQL {
+  return or(
     gt(properties.subscriptionEndsAt, now),
     and(eq(properties.autoRenews, true), gt(properties.subscriptionEndsAt, new Date(now.getTime() - graceMs))),
   )!;
-  return status === "active" ? active : or(isNull(properties.subscriptionEndsAt), not(active))!;
+}
+
+/** The SQL form of propertyStatus. */
+export function statusCondition(status: PropertyStatus, now = new Date()): SQL {
+  const paid = paidCoverCondition(now);
+  if (status === "active") return or(eq(properties.complimentary, true), paid)!;
+  // Free cover keeps a property active even with no paid date.
+  return and(eq(properties.complimentary, false), or(isNull(properties.subscriptionEndsAt), not(paid)))!;
 }
 
 /** A user's properties, newest first, optionally only active or inactive ones. */
@@ -229,7 +242,8 @@ export async function deletePropertiesById(propertyIds: string[]): Promise<numbe
 }
 
 async function deletePropertiesWhere(owned: SQL): Promise<number> {
-  const [covered] = await db().select().from(properties).where(and(owned, statusCondition("active"))).limit(1);
+  // Paid cover blocks a delete (cancel its renewal first); free cover doesn't.
+  const [covered] = await db().select().from(properties).where(and(owned, paidCoverCondition(new Date()))).limit(1);
   if (covered) {
     throw new HttpError(
       409,

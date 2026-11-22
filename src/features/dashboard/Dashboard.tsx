@@ -193,7 +193,7 @@ const Dashboard = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onSelect={() => router.push(`/properties/${row.original.id}/edit`)}>Edit</DropdownMenuItem>
-                  {status !== "active" && (
+                  {row.original.canDelete && (
                     <DropdownMenuItem variant="danger" onSelect={() => setToDelete([row.original.id])}>
                       Delete
                     </DropdownMenuItem>

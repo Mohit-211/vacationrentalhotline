@@ -254,7 +254,7 @@ const PropertyDetails = () => {
                     Cancel renewal
                   </DropdownMenuItem>
                 )}
-                {data?.status !== "active" && (
+                {data?.canDelete && (
                   <DropdownMenuItem variant="danger" onSelect={() => setToDelete("property")}>
                     <Trash2 aria-hidden="true" />
                     Delete
