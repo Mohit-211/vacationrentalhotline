@@ -81,9 +81,10 @@ function createAuth(realm: Realm) {
     disabledPaths: [
       "/update-user",
       "/delete-user",
-      // Staff accounts are made by an admin (POST /api/admin/staff), who also
-      // changes their email; staff verify nothing here.
-      ...(forStaff ? ["/sign-up/email", "/change-email", "/verify-email", "/send-verification-email"] : []),
+      // Staff accounts are made by an admin (POST /api/admin/staff). The link
+      // confirming a staff member's new email opens the website's page, which
+      // verifies it through /api/auth, so this side verifies nothing itself.
+      ...(forStaff ? ["/sign-up/email", "/verify-email", "/send-verification-email"] : []),
       ...[
         "ban-user", "create-user", "get-user", "has-permission", "impersonate-user", "list-user-sessions",
         "list-users", "remove-user", "revoke-user-session", "revoke-user-sessions", "set-role",
@@ -133,7 +134,7 @@ function createAuth(realm: Realm) {
       additionalFields: {
         phone: { type: "string", required: false, input: true },
       },
-      changeEmail: { enabled: !forStaff },
+      changeEmail: { enabled: true },
     },
 
     emailAndPassword: {

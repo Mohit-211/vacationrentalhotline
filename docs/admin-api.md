@@ -39,7 +39,7 @@ and staff can't sign in on the website (403 `STAFF_ACCOUNT`). There's no sign-up
 | Who am I | `GET /admin/me` | `{ id, name, email, role, roleLabel, permissions }`. 401 = signed out. Call it once after sign-in and on load, not on a timer. |
 | Rename yourself | `PATCH /admin/me` `{ name }` | |
 | Change password | `POST /admin/auth/change-password` `{ currentPassword, newPassword, revokeOtherSessions: true }` | 400 `INVALID_PASSWORD` (wrong current password) or `PASSWORD_TOO_WEAK`. Rule: 8-128 characters with at least one letter and one number. |
-| Change your email | Ask an admin: `PATCH /admin/staff/:id` `{ email }` | Staff can't change their own email. |
+| Change your email | `POST /admin/auth/change-email` `{ newEmail }` | A confirmation link goes to the new address; it opens the website's confirmation page, and the email changes once it's opened. |
 | Forgot password | `POST /admin/auth/request-password-reset` `{ email, redirectTo }` | `redirectTo` is an admin page under `ADMIN_APP_ORIGIN` that reads `?token=` (or `?error=INVALID_TOKEN`) and then calls `POST /admin/auth/reset-password` `{ newPassword, token }`. |
 | Sign out | `POST /admin/auth/sign-out` | Ends the session on the server too. |
 
