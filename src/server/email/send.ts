@@ -31,6 +31,10 @@ function smtpTransporter(): Transporter {
 export async function sendEmail(message: EmailMessage): Promise<void> {
   const env = serverEnv();
   if (env.MAIL_TRANSPORT === "log") {
+    // On a live server this is almost always a leftover setting, so say so.
+    if (env.NODE_ENV === "production") {
+      console.warn('[email] Not sent: MAIL_TRANSPORT is "log". Set it to "smtp" (or leave it empty) to send email.');
+    }
     console.info(`[email] To: ${message.to}\n[email] Subject: ${message.subject}\n${message.text}\n[email] ---`);
     return;
   }

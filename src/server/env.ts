@@ -25,8 +25,11 @@ const serverEnvSchema = z
     /** mysql://user:password@host:3306/database */
     DATABASE_URL: z.string().startsWith("mysql://", "DATABASE_URL must be a mysql:// connection string"),
     BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
-    /** "smtp" sends real email; "log" prints it to the server console. */
-    MAIL_TRANSPORT: z.enum(["smtp", "log"]).optional(),
+    /**
+     * "smtp" sends real email; "log" prints it to the server console. Unset or
+     * empty: "smtp" in production, "log" otherwise.
+     */
+    MAIL_TRANSPORT: optional.pipe(z.enum(["smtp", "log"]).optional()),
     SMTP_HOST: optional,
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_USERNAME: optional,

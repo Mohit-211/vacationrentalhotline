@@ -213,7 +213,9 @@ In Stripe's dashboard, in live mode:
 
 ## 10. Check it works
 
-- Open the site. Sign up: the verification email should arrive (that checks SMTP).
+- Open the site. Sign up: the verification email should arrive (that checks SMTP). If it doesn't, look in
+  `website-error.log`: `[email] Not sent: MAIL_TRANSPORT is "log"` means `.env` still says `log` (set it to
+  `smtp`, then `pm2 restart vrh-website`); a connection or login error means the `SMTP_*` values are wrong.
 - Sign in, add a property, and check the dashboard lists it as inactive.
 - The admin account from step 5 is for the admin panel, deployed separately; set its address in `ADMIN_APP_ORIGIN`.
 - After the first real payment, the Stripe webhook should show successful deliveries.
