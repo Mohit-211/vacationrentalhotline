@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import StatusMessage from "@/components/ui/StatusMessage";
-import { authClient, authErrorMessage } from "@/lib/auth-client";
+import { authClient, authErrorMessage, isBadLinkError } from "@/lib/auth-client";
+import { authLinkClasses } from "./AuthCard";
 
 const VerifyEmail = () => {
   const [verified, setVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [badLink, setBadLink] = useState(false);
   const router = useRouter();
 
   const handleVerify = async () => {
@@ -17,15 +20,36 @@ const VerifyEmail = () => {
     const { error } = await authClient.verifyEmail({ query: { token } });
     setVerifying(false);
     if (error) {
-      // The link expired: send them back to sign up (signing in also sends a new link).
-      toast.error(authErrorMessage(error));
-      setTimeout(() => router.push("/signup"), 3000);
+      // A bad link gets its own screen; anything else (too many tries, no
+      // connection) is shown here, and the button works again.
+      if (isBadLinkError(error)) setBadLink(true);
+      else toast.error(authErrorMessage(error));
       return;
     }
     // Also the answer when the address was already verified.
     setVerified(true);
   };
 
+  if (badLink) {
+    return (
+      <StatusMessage
+        tone="warning"
+        subject="Link Expired"
+        text={
+          <>
+            This verification link is invalid or has expired. Log in and we&apos;ll email you a new one. Unverified
+            accounts are removed after 12 hours, so if you signed up longer ago than that, please{" "}
+            <Link href="/signup" className={authLinkClasses}>
+              sign up again
+            </Link>
+            .
+          </>
+        }
+        buttonText="Go to Login"
+        onButtonClick={() => router.push("/login")}
+      />
+    );
+  }
   if (verified) {
     return (
       <StatusMessage

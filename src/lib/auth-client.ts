@@ -19,6 +19,11 @@ interface AuthError {
   status?: number;
 }
 
+/** The emailed link itself is bad: it expired, was altered, or its account is gone. */
+export function isBadLinkError(error: AuthError | null | undefined): boolean {
+  return ["TOKEN_EXPIRED", "INVALID_TOKEN", "USER_NOT_FOUND"].includes(error?.code ?? "");
+}
+
 /** A message to show for a failed Better Auth call. */
 export function authErrorMessage(error: AuthError | null | undefined): string {
   if (error?.status === 429) return "Too many attempts. Please wait a minute and try again.";
@@ -32,6 +37,8 @@ export function authErrorMessage(error: AuthError | null | undefined): string {
     case "INVALID_TOKEN":
     case "TOKEN_EXPIRED":
       return "This link has expired. Please request a new one.";
+    case "INVALID_USER":
+      return "This link is for a different account. Log out, then open the link again.";
     case "BANNED_USER":
       return "This account has been suspended. Please contact us.";
   }
