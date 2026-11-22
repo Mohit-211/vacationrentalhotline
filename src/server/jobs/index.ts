@@ -3,7 +3,7 @@ import { and, eq, gt, inArray, isNull, lt, lte } from "drizzle-orm";
 import { formatAddress } from "@/lib/locations";
 import { UNVERIFIED_ACCOUNT_LIFETIME_SECONDS } from "@/server/auth";
 import { db } from "@/server/db";
-import { properties, sessions, users, verifications } from "@/server/db/schema";
+import { properties, sessions, signInEvents, users, verifications } from "@/server/db/schema";
 import { sendEmail } from "@/server/email/send";
 import { coverEndedMessage, staffCoverEndedMessage } from "@/server/email/templates";
 import { serverEnv } from "@/server/env";
@@ -90,9 +90,14 @@ export async function sendCoverEndedNotices(now = new Date()): Promise<number> {
   return sent;
 }
 
-/** Deletes expired one-time tokens and sessions that are past use. */
+/** Sign-in history is kept for a year. */
+const SIGN_IN_HISTORY_DAYS = 365;
+
+/** Deletes expired one-time tokens, sessions past use, and sign-in history older than a year. */
 export async function removeExpiredRows(now = new Date()): Promise<number> {
   const [tokens] = await db().delete(verifications).where(lt(verifications.expiresAt, now));
   const [expiredSessions] = await db().delete(sessions).where(lt(sessions.expiresAt, now));
-  return tokens.affectedRows + expiredSessions.affectedRows;
+  const historyCutoff = new Date(now.getTime() - SIGN_IN_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+  const [oldSignIns] = await db().delete(signInEvents).where(lt(signInEvents.signedInAt, historyCutoff));
+  return tokens.affectedRows + expiredSessions.affectedRows + oldSignIns.affectedRows;
 }

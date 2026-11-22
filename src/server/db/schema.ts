@@ -6,6 +6,7 @@ import {
   datetime,
   index,
   int,
+  json,
   mysqlEnum,
   mysqlTable,
   text,
@@ -46,9 +47,21 @@ const newId = () => crypto.randomUUID();
 // Accounts and sign-in (managed by Better Auth)
 // ---------------------------------------------------------------------------
 
-/** Role names; customers use the site, staff use the admin panel. */
-export const USER_ROLES = ["customer", "employee", "admin"] as const;
-export type UserRole = (typeof USER_ROLES)[number];
+/**
+ * Roles: "customer" for site accounts; every other role is a staff role,
+ * whose permissions (src/lib/permissions.ts) decide what it can do in the
+ * admin panel. The migration creates admin, employee and customer.
+ */
+export const roles = mysqlTable("roles", {
+  /** A slug such as "employee"; users.role points at it. Never renamed. */
+  name: varchar("name", { length: 20 }).primaryKey(),
+  label: varchar("label", { length: 60 }).notNull(),
+  permissions: json("permissions").$type<string[]>().notNull(),
+  /** Built in: can't be deleted ("admin" can't be changed either). */
+  system: boolean("system").notNull().default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
 
 /**
  * Everyone who can sign in: customers and staff. Better Auth manages the
@@ -64,7 +77,10 @@ export const users = mysqlTable(
     emailVerified: boolean("email_verified").notNull().default(false),
     /** Better Auth's profile picture field; the site doesn't use it. */
     image: varchar("image", { length: 2048 }),
-    role: varchar("role", { length: 20 }).notNull().default("customer"),
+    role: varchar("role", { length: 20 })
+      .notNull()
+      .default("customer")
+      .references(() => roles.name, { onUpdate: "cascade" }),
     banned: boolean("banned").notNull().default(false),
     banReason: varchar("ban_reason", { length: 500 }),
     banExpires: utcDateTime("ban_expires"),
@@ -152,6 +168,28 @@ export const verifications = mysqlTable(
   (table) => [
     index("verifications_identifier_idx").on(table.identifier),
     index("verifications_expires_at_idx").on(table.expiresAt),
+  ],
+);
+
+/** Sign-in history for the admin panel: one row per sign-in, closed when the session ends. */
+export const signInEvents = mysqlTable(
+  "sign_in_events",
+  {
+    id: uuid("id").primaryKey().$defaultFn(newId),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The session this sign-in started; sessions are deleted when they end. */
+    sessionId: uuid("session_id"),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    userAgent: text("user_agent"),
+    signedInAt: utcDateTime("signed_in_at").notNull(),
+    signedOutAt: utcDateTime("signed_out_at"),
+  },
+  (table) => [
+    index("sign_in_events_user_id_signed_in_at_idx").on(table.userId, table.signedInAt),
+    index("sign_in_events_signed_in_at_idx").on(table.signedInAt),
+    index("sign_in_events_session_id_idx").on(table.sessionId),
   ],
 );
 

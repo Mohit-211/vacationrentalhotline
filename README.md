@@ -38,6 +38,7 @@ In development, emails (verification links, password resets) are printed to the 
 | `npm run lint`  | ESLint (Next.js recommended rules)            |
 | `npm run db:generate` | Writes a SQL migration for changes to `src/server/db/schema.ts` |
 | `npm run db:migrate`  | Applies pending migrations to `DATABASE_URL`  |
+| `npm run admin:create -- --email … --name "…"` | Creates an admin account (for a new database); prints its password once |
 
 ### Changing the database
 
@@ -77,8 +78,11 @@ status (400, 401, 403, 404, 500).
 | `POST /api/properties/:id/cancel-renewal` | Stops a property renewing; it stays covered until its paid year ends |
 | `POST /api/webhooks/stripe` | Stripe's signed events (payments, renewals, cancellations, refunds) |
 | `POST /api/jobs/run` | Runs the scheduled jobs now (needs `JOBS_SECRET`) |
+| `/api/admin/*` | The admin panel's API: dashboard, customers, properties, subscriptions, payments, messages, staff, roles, sign-in history. See [docs/admin-api.md](docs/admin-api.md) |
 
-Request rules live in `src/lib/schemas` and are shared with the forms.
+Request rules live in `src/lib/schemas` and are shared with the forms. The separate admin panel (vrh-admin) runs on
+a subdomain set in `ADMIN_APP_ORIGIN` and signs in with the same session cookie; staff permissions come from roles
+(`src/lib/permissions.ts`).
 
 ## Payments
 
@@ -126,7 +130,8 @@ src/
   features/        screens grouped by area: account, auth, dashboard, legal, properties
   lib/             API client, validation helpers and form rules shared with the server (lib/schemas)
   server/          server-only code: database (db/), Better Auth (auth.ts), email, environment
+docs/              admin-api.md: the API for the admin panel's developers
 drizzle/           SQL migrations, generated from src/server/db/schema.ts
-scripts/           db-migrate.mts
+scripts/           db-migrate.mts, create-admin.mts
 public/            logos, favicon, images and the CSV import sample
 ```

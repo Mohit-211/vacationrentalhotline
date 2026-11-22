@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/db-migrate.mts"
+    "db:migrate": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/db-migrate.mts",
+    "admin:create": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/create-admin.mts"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.8",

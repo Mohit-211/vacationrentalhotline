@@ -17,6 +17,11 @@ const serverEnvSchema = z
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     /** Public URL of this site, e.g. https://vacationrentalhotline.com */
     APP_URL: z.url().transform((url) => url.replace(/\/+$/, "")),
+    /**
+     * Origin of the separate admin panel, e.g. https://admin.vacationrentalhotline.com.
+     * It may call the API with the session cookie (CORS with credentials).
+     */
+    ADMIN_APP_ORIGIN: optional.pipe(z.url().transform((url) => new URL(url).origin).optional()),
     /** mysql://user:password@host:3306/database */
     DATABASE_URL: z.string().startsWith("mysql://", "DATABASE_URL must be a mysql:// connection string"),
     BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),

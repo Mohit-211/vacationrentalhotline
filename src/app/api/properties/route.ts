@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { createPropertiesSchema, propertyInputSchema, type PropertyValues } from "@/lib/schemas/property";
-import { created, handler, invalidFields, ok, readBody, requireUser, zodFields } from "@/server/http";
+import { createPropertiesSchema } from "@/lib/schemas/property";
+import { created, handler, invalidFields, ok, readBody, requireUser } from "@/server/http";
 import {
   createUserProperties,
   deleteUserProperties,
   listUserProperties,
+  parsePropertyBatch,
   PROPERTY_STATUSES,
   type PropertyStatus,
 } from "@/server/services/properties";
@@ -29,15 +30,7 @@ export const GET = handler(async (request: Request) => {
 export const POST = handler(async (request: Request) => {
   const user = await requireUser(request);
   const { properties } = await readBody(request, createPropertiesSchema);
-  const values: PropertyValues[] = [];
-  let fields: Record<string, string[]> = {};
-  properties.forEach((item, index) => {
-    const result = propertyInputSchema.safeParse(item);
-    if (result.success) values.push(result.data);
-    else fields = { ...fields, ...zodFields(result.error, ["properties", index]) };
-  });
-  if (Object.keys(fields).length > 0) throw invalidFields(fields);
-  return created(await createUserProperties(user.id, values));
+  return created(await createUserProperties(user.id, parsePropertyBatch(properties)));
 });
 
 const deleteSchema = z.object({

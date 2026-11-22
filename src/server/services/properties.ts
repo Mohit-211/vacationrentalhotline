@@ -1,10 +1,10 @@
 import "server-only";
 import { and, asc, desc, eq, gt, inArray, isNull, not, or, type SQL } from "drizzle-orm";
 import { formatAddress } from "@/lib/locations";
-import type { PropertyValues } from "@/lib/schemas/property";
+import { propertyFieldsSchema, propertyInputSchema, type PropertyValues } from "@/lib/schemas/property";
 import { db } from "@/server/db";
 import { properties, propertyNotes } from "@/server/db/schema";
-import { HttpError } from "@/server/http";
+import { HttpError, invalidFields, zodFields } from "@/server/http";
 
 export type PropertyRow = typeof properties.$inferSelect;
 export type NoteRow = typeof propertyNotes.$inferSelect;
@@ -146,13 +146,58 @@ export async function updateProperty(propertyId: string, values: PropertyValues)
 }
 
 /**
+ * Validates properties to create (the form, a CSV import, or staff). Every
+ * one must be valid, or none is saved; errors name the row, e.g.
+ * "properties.3.ownerEmail".
+ */
+export function parsePropertyBatch(items: unknown[]): PropertyValues[] {
+  const values: PropertyValues[] = [];
+  let fields: Record<string, string[]> = {};
+  items.forEach((item, index) => {
+    const result = propertyInputSchema.safeParse(item);
+    if (result.success) values.push(result.data);
+    else fields = { ...fields, ...zodFields(result.error, ["properties", index]) };
+  });
+  if (Object.keys(fields).length > 0) throw invalidFields(fields);
+  return values;
+}
+
+const EDITABLE_KEYS = new Set(Object.keys(propertyFieldsSchema.shape));
+
+/**
+ * Applies a partial update: the fields sent change, null or "" clears an
+ * optional one, and the property as it would be saved must still be valid.
+ */
+export async function patchProperty(property: PropertyRow, body: unknown): Promise<PropertyRow> {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw invalidFields({ _: ["Send the fields to change as a JSON object."] });
+  }
+  const unknownKeys = Object.keys(body).filter((key) => !EDITABLE_KEYS.has(key));
+  if (unknownKeys.length > 0) {
+    throw invalidFields(Object.fromEntries(unknownKeys.map((key) => [key, ["This field doesn't exist or can't be changed."]])));
+  }
+  const result = propertyInputSchema.safeParse({ ...editableFields(property), ...body });
+  if (!result.success) throw invalidFields(zodFields(result.error));
+  return updateProperty(property.id, result.data);
+}
+
+/**
  * Deletes those of the given properties that belong to the user and aren't
  * covered; returns how many. A covered property must stop renewing and run
  * out first, so nothing is deleted while it's still being paid for.
  */
 export async function deleteUserProperties(userId: string, propertyIds: string[]): Promise<number> {
   if (propertyIds.length === 0) return 0;
-  const owned = and(eq(properties.userId, userId), inArray(properties.id, propertyIds));
+  return deletePropertiesWhere(and(eq(properties.userId, userId), inArray(properties.id, propertyIds))!);
+}
+
+/** Staff: deletes properties by id, with the same rule about covered ones. */
+export async function deletePropertiesById(propertyIds: string[]): Promise<number> {
+  if (propertyIds.length === 0) return 0;
+  return deletePropertiesWhere(inArray(properties.id, propertyIds));
+}
+
+async function deletePropertiesWhere(owned: SQL): Promise<number> {
   const [covered] = await db().select().from(properties).where(and(owned, statusCondition("active"))).limit(1);
   if (covered) {
     throw new HttpError(

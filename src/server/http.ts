@@ -1,6 +1,10 @@
 import "server-only";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { ADMIN_ROLE, CUSTOMER_ROLE, PERMISSION_NAMES, type Permission } from "@/lib/permissions";
 import { auth, type Session } from "@/server/auth";
+import { db } from "@/server/db";
+import { roles } from "@/server/db/schema";
 import { serverEnv } from "@/server/env";
 
 // Helpers shared by the API's route handlers.
@@ -52,13 +56,15 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
  * Requests that change data and carry cookies must come from a page of this
- * site, as browsers say in the Origin header. SameSite=Lax cookies already
- * stop most cross-site requests; this closes the rest.
+ * site or of the admin panel, as browsers say in the Origin header.
+ * SameSite=Lax cookies already stop most cross-site requests; this closes
+ * the rest.
  */
 function assertTrustedOrigin(request: Request) {
   if (SAFE_METHODS.has(request.method) || !request.headers.has("cookie")) return;
+  const env = serverEnv();
   const origin = request.headers.get("origin");
-  if (origin !== new URL(serverEnv().APP_URL).origin) {
+  if (origin !== new URL(env.APP_URL).origin && origin !== env.ADMIN_APP_ORIGIN) {
     throw new HttpError(403, "INVALID_ORIGIN", "This request must come from the Vacation Rental Hotline site.");
   }
 }
@@ -113,3 +119,52 @@ export async function requireUser(request: Request): Promise<SessionUser> {
   if (!session) throw new HttpError(401, "UNAUTHENTICATED", "Please sign in to continue.");
   return session.user;
 }
+
+// ---- Staff ---------------------------------------------------------------------
+
+export interface Staff {
+  user: SessionUser;
+  role: string;
+  permissions: Permission[];
+}
+
+/**
+ * The signed-in staff member, or 401 (not signed in) / 403 (a customer, or
+ * a role without the permission). "admin" has every permission.
+ */
+export async function requireStaff(request: Request, permission?: Permission): Promise<Staff> {
+  const user = await requireUser(request);
+  const role = (user as SessionUser & { role?: string }).role ?? CUSTOMER_ROLE;
+  if (role === CUSTOMER_ROLE) throw new HttpError(403, "FORBIDDEN", "This account can't use the admin panel.");
+  let permissions: Permission[];
+  if (role === ADMIN_ROLE) {
+    permissions = PERMISSION_NAMES;
+  } else {
+    const [row] = await db().select().from(roles).where(eq(roles.name, role)).limit(1);
+    permissions = (row?.permissions ?? []).filter((name): name is Permission => (PERMISSION_NAMES as string[]).includes(name));
+  }
+  if (permission && !permissions.includes(permission)) {
+    throw new HttpError(403, "FORBIDDEN", "Your role doesn't allow this.");
+  }
+  return { user, role, permissions };
+}
+
+// ---- Paging ----------------------------------------------------------------------
+
+export interface PageRequest {
+  page: number;
+  pageSize: number;
+  offset: number;
+}
+
+/** ?page=1&pageSize=25 (at most 100). */
+export function readPage(request: Request, defaultSize = 25): PageRequest {
+  const params = new URL(request.url).searchParams;
+  const page = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(params.get("pageSize") ?? String(defaultSize), 10) || defaultSize));
+  return { page, pageSize, offset: (page - 1) * pageSize };
+}
+
+/** A page of results: { data, meta: { page, pageSize, total } }. */
+export const paged = <T>(data: T[], total: number, { page, pageSize }: PageRequest) =>
+  Response.json({ data, meta: { page, pageSize, total } });

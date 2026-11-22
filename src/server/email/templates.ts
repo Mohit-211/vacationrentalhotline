@@ -245,3 +245,38 @@ export function staffCoverEndedMessage(
     list: items.map((item) => `${item.label} (ended ${longDate(item.endedAt)})`),
   });
 }
+
+export function accountCreatedMessage(
+  to: string,
+  name: string,
+  account: { email: string; password: string; signInUrl: string },
+): EmailMessage {
+  return render({
+    to,
+    subject: "Your Vacation Rental Hotline account",
+    heading: "Your account is ready",
+    paragraphs: [
+      greeting(name),
+      "An account has been created for you at Vacation Rental Hotline. Sign in with:",
+    ],
+    list: [`Email: ${account.email}`, `Password: ${account.password}`],
+    action: { label: "Sign in", url: account.signInUrl },
+    footnote: "Please change this password after you sign in (Account, then Change Password). If you weren't expecting this email, contact us.",
+  });
+}
+
+export function passwordSetByStaffMessage(
+  to: string,
+  name: string,
+  account: { password: string; signInUrl: string },
+): EmailMessage {
+  return render({
+    to,
+    subject: "Your Vacation Rental Hotline password has been reset",
+    heading: "Your password has been reset",
+    paragraphs: [greeting(name), "Our team reset the password for your account. Sign in with this new password:"],
+    list: [`Password: ${account.password}`],
+    action: { label: "Sign in", url: account.signInUrl },
+    footnote: "You've been signed out everywhere. Please change this password after you sign in. If you didn't ask for this, contact us.",
+  });
+}

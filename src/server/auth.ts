@@ -8,6 +8,7 @@ import { AUTH_COOKIE_PREFIX } from "@/lib/auth-cookie";
 import { personNameSchema, phoneNumberSchema } from "@/lib/schemas/common";
 import { passwordSchema } from "@/lib/schemas/password";
 import { db, schema } from "@/server/db";
+import { signInEvents } from "@/server/db/schema";
 import {
   emailChangedMessage,
   passwordChangedMessage,
@@ -18,6 +19,7 @@ import {
 } from "@/server/email/templates";
 import { sendEmailInBackground } from "@/server/email/send";
 import { serverEnv } from "@/server/env";
+import { and, eq, isNull } from "drizzle-orm";
 
 /** Accounts not verified within this time are removed (src/server/jobs). */
 export const UNVERIFIED_ACCOUNT_LIFETIME_SECONDS = 12 * 60 * 60;
@@ -50,6 +52,9 @@ function createAuth() {
   return betterAuth({
     appName: "Vacation Rental Hotline",
     baseURL: env.APP_URL,
+    // The admin panel signs in from its own origin (same site, so the
+    // SameSite=Lax session cookie still applies).
+    trustedOrigins: env.ADMIN_APP_ORIGIN ? [env.ADMIN_APP_ORIGIN] : [],
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db(), { provider: "mysql", schema, usePlural: true, transaction: true }),
     telemetry: { enabled: false },
@@ -60,8 +65,32 @@ function createAuth() {
     },
 
     // Profile changes go through /api/account, which validates the address
-    // fields; account deletion isn't offered.
-    disabledPaths: ["/update-user", "/delete-user"],
+    // fields; account deletion isn't offered. The admin plugin's endpoints are
+    // used only from the server: the admin panel calls /api/admin instead.
+    disabledPaths: [
+      "/update-user",
+      "/delete-user",
+      ...[
+        "ban-user", "create-user", "get-user", "has-permission", "impersonate-user", "list-user-sessions",
+        "list-users", "remove-user", "revoke-user-session", "revoke-user-sessions", "set-role",
+        "set-user-password", "stop-impersonating", "unban-user", "update-user",
+      ].map((path) => `/admin/${path}`),
+    ],
+
+    databaseHooks: {
+      session: {
+        delete: {
+          // Closes the sign-in history entry when a session ends (sign-out,
+          // password change, revoked by staff).
+          after: async (session) => {
+            await db()
+              .update(signInEvents)
+              .set({ signedOutAt: new Date() })
+              .where(and(eq(signInEvents.sessionId, session.id), isNull(signInEvents.signedOutAt)));
+          },
+        },
+      },
+    },
 
     user: {
       additionalFields: {
@@ -143,6 +172,20 @@ function createAuth() {
         }
       }),
       after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/sign-in/email") {
+          // Sign-in history for the admin panel.
+          const created = ctx.context.newSession;
+          if (created) {
+            await db().insert(signInEvents).values({
+              userId: created.user.id,
+              sessionId: created.session.id,
+              ipAddress: created.session.ipAddress ?? null,
+              userAgent: created.session.userAgent ?? null,
+              signedInAt: created.session.createdAt,
+            });
+          }
+          return;
+        }
         if (ctx.path !== "/change-password") return;
         const returned = ctx.context.returned;
         if (!returned || isAPIError(returned) || typeof returned !== "object" || !("user" in returned)) return;
