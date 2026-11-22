@@ -23,13 +23,12 @@ const Account = () => {
   const [profileData, setProfileData] = useState<AccountDetails>();
   const router = useRouter();
 
+  // Loaded once here, for the sidebar and the profile form alike.
   useEffect(() => {
     getAccount()
-      .then((res) => {
-        setProfileData(res?.data?.data);
-      })
-      .catch((e) => {
-        console.log(e, "error in profile");
+      .then((res) => setProfileData(res.data.data))
+      .catch(() => {
+        // The API client has already shown the error.
       });
   }, []);
 
@@ -56,7 +55,7 @@ const Account = () => {
     return (
       <StatusMessage
         subject="Email Change Request Submitted Successfully!"
-        text="Your request to change your email address has been submitted. A verification email has been sent to your new email address. Please check your inbox and verify your new email to complete the update. If you have not requested an email change, you can go back to your profile to view your current details."
+        text="We've sent a verification link to your new email address. Open it to finish the change. Until then, your current email stays on your account."
         buttonText="Go to Profile"
         onButtonClick={showProfileTab}
       />
@@ -98,7 +97,7 @@ const Account = () => {
       <section className="rounded-2xl border border-border bg-surface p-6 shadow-sm sm:p-8">
         <TabsContent value="edit">
           <h1 className="mb-6 text-2xl font-bold">Profile</h1>
-          {isClient && <EditProfileForm />}
+          {isClient && <EditProfileForm account={profileData} onSaved={setProfileData} />}
         </TabsContent>
         <TabsContent value="change_password">
           <h1 className="mb-6 text-2xl font-bold">Change Password</h1>

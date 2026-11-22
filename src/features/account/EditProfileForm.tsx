@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
-import { getAccount, updateAccount } from "@/lib/api/account";
+import { updateAccount } from "@/lib/api/account";
+import type { Account } from "@/lib/api/types";
 import { COUNTRIES, findCountry, isCountryCode, isValidPostalCode } from "@/lib/locations";
 import { isValidPhone } from "@/lib/validation";
 
@@ -57,9 +58,10 @@ const emptyProfile: ProfileFormValues = {
 
 const countryOptions = COUNTRIES.map((country) => ({ value: country.code, label: country.name }));
 
-const EditProfileForm = () => {
+/** Edits the account the page loaded; `onSaved` gets the saved account back. */
+const EditProfileForm = ({ account, onSaved }: { account?: Account; onSaved?: (account: Account) => void }) => {
   const [loading, setLoading] = useState(false);
-  const [loadingData, setLoadingData] = useState(true);
+  const loadingData = !account;
   const { control, handleSubmit, reset, setValue, getValues, trigger } = useForm<ProfileFormValues>({
     resolver: zodResolver(schema),
     mode: "onChange",
@@ -69,25 +71,18 @@ const EditProfileForm = () => {
   const country = findCountry(countryCode);
 
   useEffect(() => {
-    getAccount()
-      .then((res) => {
-        const account = res.data.data;
-        reset({
-          name: account.name,
-          email: account.email,
-          phone: account.phone ?? "",
-          streetAddress: account.streetAddress ?? "",
-          city: account.city ?? "",
-          countryCode: account.countryCode ?? "",
-          regionCode: account.regionCode ?? "",
-          postalCode: account.postalCode ?? "",
-        });
-      })
-      .catch(() => {
-        // The API client has already shown the error.
-      })
-      .finally(() => setLoadingData(false));
-  }, [reset]);
+    if (!account) return;
+    reset({
+      name: account.name,
+      email: account.email,
+      phone: account.phone ?? "",
+      streetAddress: account.streetAddress ?? "",
+      city: account.city ?? "",
+      countryCode: account.countryCode ?? "",
+      regionCode: account.regionCode ?? "",
+      postalCode: account.postalCode ?? "",
+    });
+  }, [account, reset]);
 
   const onSubmit = async (values: ProfileFormValues) => {
     setLoading(true);
@@ -102,6 +97,7 @@ const EditProfileForm = () => {
         postalCode: values.postalCode,
       });
       reset({ ...values, postalCode: res.data.data.postalCode ?? "" });
+      onSaved?.(res.data.data);
       toast.success("Profile Updated Successfully.");
     } catch {
       // The API client has already shown the error.
