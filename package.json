@@ -26,7 +26,6 @@
     "react-icons": "^5.7.0",
     "react-phone-number-input": "^3.4.18",
     "react-scroll": "^1.9.3",
-    "react-secure-storage": "^1.3.2",
     "sass": "^1.108.2"
   },
   "devDependencies": {

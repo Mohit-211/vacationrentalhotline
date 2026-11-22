@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from "axios";
 import { message } from "antd";
-import secureLocalStorage from "react-secure-storage";
+import { clearToken, getToken } from "@/lib/session";
 import type { ApiErrorBody } from "./types";
 
 const BASE_URL = "https://node.vacationrentalhotline.com:5000/api/v1/";
@@ -25,8 +25,7 @@ const apiHelper = axios.create({
 
 apiHelper.interceptors.request.use(
   (config) => {
-    const token = secureLocalStorage.getItem("usertoken") as string | null;
-    config.headers.set(getHeaders(token));
+    config.headers.set(getHeaders(getToken()));
     return config;
   },
   (error) => {
@@ -47,18 +46,18 @@ apiHelper.interceptors.response.use(
       ) {
         message.error("Please Login to Continue")
         window.location.href = "/login";
-        secureLocalStorage.removeItem("usertoken");
+        clearToken();
       } else if (
         status === 404 ||
         error?.response?.data?.message === "User Not Found"
       ) {
         message.error(error?.response?.data?.message);
         window.location.href = "/login";
-        secureLocalStorage.removeItem("usertoken");
+        clearToken();
       } else if (status === 500 ||error?.response?.data?.message === "jwt expire" ) {
         message.error("Server error, please try again later.");
         window.location.href = "/login";
-        secureLocalStorage.removeItem("usertoken");
+        clearToken();
       } else {
         message.error(error.response.data.message || "An error occurred.");
       }

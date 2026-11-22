@@ -9,7 +9,7 @@ import Logo from "@public/logo-2.png";
 import Image from "next/image";
 import { login } from "@/lib/api/auth";
 import type { LoginInput } from "@/lib/api/types";
-import secureLocalStorage from "react-secure-storage";
+import { setToken } from "@/lib/session";
 
 const LoginForm = () => {
   const router = useRouter();
@@ -22,8 +22,7 @@ const LoginForm = () => {
       message.success(response?.data?.message);
       if (response.status === 200) {
         const token = response?.data?.data?.tokens?.access?.token;
-        secureLocalStorage.removeItem("usertoken");
-        secureLocalStorage.setItem("usertoken", token);
+        setToken(token);
         router.push("/dashboard");
       }
     } catch (e) {
