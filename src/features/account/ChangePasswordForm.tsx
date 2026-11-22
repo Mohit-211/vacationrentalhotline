@@ -74,7 +74,6 @@ const ChangePasswordForm = ({ onPasswordChangeSuccess }: { onPasswordChangeSucce
         error={errors.password?.message}
       >
         <PasswordInput
-          placeholder="*****"
           autoComplete="new-password"
           {...register("password", { deps: ["confirmPassword"] })}
         />
@@ -85,7 +84,7 @@ const ChangePasswordForm = ({ onPasswordChangeSuccess }: { onPasswordChangeSucce
         required
         error={errors.confirmPassword?.message}
       >
-        <PasswordInput placeholder="*****" autoComplete="new-password" {...register("confirmPassword")} />
+        <PasswordInput autoComplete="new-password" {...register("confirmPassword")} />
       </FormField>
       <Button type="submit" size="lg" loading={loading} className="w-full">
         Change Password

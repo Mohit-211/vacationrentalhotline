@@ -11,7 +11,7 @@ interface AuthCardProps {
 export function AuthCard({ title, description, footer, children }: AuthCardProps) {
   return (
     <div className="w-full max-w-md">
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-lg sm:p-8">
+      <div className="rounded-3xl border border-border bg-surface p-6 shadow-xl sm:p-10">
         <h1 className="text-2xl font-bold">{title}</h1>
         {description && <div className="mt-2 text-sm text-muted-foreground">{description}</div>}
         <div className="mt-6">{children}</div>

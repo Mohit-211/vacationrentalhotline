@@ -60,10 +60,10 @@ const LoginForm = () => {
     >
       <form method="post" noValidate onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
         <FormField id="loginForm_email" label="Email" required error={errors.email?.message}>
-          <Input placeholder="Enter Email Address" autoComplete="email" {...register("email")} />
+          <Input type="email" placeholder="you@example.com" autoComplete="email" {...register("email")} />
         </FormField>
         <FormField id="loginForm_password" label="Password" required error={errors.password?.message}>
-          <PasswordInput placeholder="*****" autoComplete="current-password" {...register("password")} />
+          <PasswordInput autoComplete="current-password" {...register("password")} />
         </FormField>
         <div className="-mt-2 text-right text-sm">
           <Link href="/forgot-password" className={authLinkClasses}>

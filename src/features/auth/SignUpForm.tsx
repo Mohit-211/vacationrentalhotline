@@ -107,10 +107,10 @@ const SignUpForm = () => {
     >
       <form method="post" noValidate onSubmit={handleSubmit(handleSignUp)} className="grid gap-5">
         <FormField id="signup_name" label="Name" required error={errors.name?.message}>
-          <Input placeholder="Enter Name" autoComplete="name" {...register("name")} />
+          <Input placeholder="Your full name" autoComplete="name" {...register("name")} />
         </FormField>
         <FormField id="signup_email" label="Email" required error={errors.email?.message}>
-          <Input type="email" placeholder="Enter Email" autoComplete="email" {...register("email")} />
+          <Input type="email" placeholder="you@example.com" autoComplete="email" {...register("email")} />
         </FormField>
         <Controller
           control={control}
@@ -130,7 +130,6 @@ const SignUpForm = () => {
         />
         <FormField id="signup_password" label="Password" required hint={PASSWORD_HINT} error={errors.password?.message}>
           <PasswordInput
-            placeholder="*****"
             autoComplete="new-password"
             {...register("password", { deps: ["confirm_password"] })}
           />
@@ -141,7 +140,7 @@ const SignUpForm = () => {
           required
           error={errors.confirm_password?.message}
         >
-          <PasswordInput placeholder="*****" autoComplete="new-password" {...register("confirm_password")} />
+          <PasswordInput autoComplete="new-password" {...register("confirm_password")} />
         </FormField>
         <div className="grid gap-1.5">
           <div className="flex items-start gap-3">
