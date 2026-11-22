@@ -20,7 +20,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${montserrat.variable}`}>
+    // data-scroll-behavior: links within a page glide (globals.css), but a new
+    // page starts at its top at once instead of scrolling up from where the
+    // last one was left.
+    <html lang="en" className={`${inter.variable} ${montserrat.variable}`} data-scroll-behavior="smooth">
       <body>
         {children}
         <Toaster />
